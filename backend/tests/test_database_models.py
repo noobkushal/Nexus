@@ -105,9 +105,10 @@ def test_memory_and_settings_persistence(db_session):
         content="Preferred charcoal UI mode",
         importance=3,
     )
+    setting_key = f"n8n_poll_interval_{uuid.uuid4().hex[:6]}"
     setting = IntegrationSettingModel(
         id=f"set-{uuid.uuid4().hex[:6]}",
-        key="n8n_poll_interval",
+        key=setting_key,
         value_json='{"seconds": 30}',
         is_secret=False,
     )
@@ -118,6 +119,6 @@ def test_memory_and_settings_persistence(db_session):
     assert loaded_mem is not None
     assert loaded_mem.key == "theme_dark"
 
-    loaded_setting = db_session.query(IntegrationSettingModel).filter_by(key="n8n_poll_interval").first()
+    loaded_setting = db_session.query(IntegrationSettingModel).filter_by(key=setting_key).first()
     assert loaded_setting is not None
     assert "30" in loaded_setting.value_json
