@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
-import { Bot, Shield, CheckCircle2, AlertTriangle, Key } from "lucide-react";
+import { Bot, Shield, CheckCircle2, AlertTriangle, Key, Cpu, Sparkles, Lock } from "lucide-react";
 
 interface AgentInfo {
   id: string;
@@ -14,15 +14,30 @@ interface AgentInfo {
   permissions: string[];
 }
 
+interface SkillInfo {
+  id: string;
+  name: string;
+  description: string;
+  required_permission: string;
+  is_consequential: boolean;
+  authorized_agents: string[];
+}
+
 export default function AgentsPage() {
   const [agents, setAgents] = useState<AgentInfo[]>([]);
+  const [skills, setSkills] = useState<SkillInfo[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/api/v1/agents")
-      .then((r) => r.json())
-      .then((data) => setAgents(data))
-      .catch((err) => console.error("Failed to load agents", err))
+    Promise.all([
+      fetch("http://127.0.0.1:8000/api/v1/agents").then((r) => r.json()),
+      fetch("http://127.0.0.1:8000/api/v1/skills").then((r) => r.json()),
+    ])
+      .then(([agentsData, skillsData]) => {
+        if (Array.isArray(agentsData)) setAgents(agentsData);
+        if (Array.isArray(skillsData)) setSkills(skillsData);
+      })
+      .catch((err) => console.error("Failed to load agents or skills", err))
       .finally(() => setLoading(false));
   }, []);
 
@@ -106,7 +121,7 @@ export default function AgentsPage() {
               {/* Permissions */}
               <div className="pt-3 border-t border-nexus-800">
                 <div className="text-[10px] font-semibold text-nexus-500 uppercase tracking-wider mb-2 flex items-center gap-1">
-                  <Key className="w-3 h-3" />
+                  <Key className="w-3 h-3 text-cyan-400" />
                   Active Permissions
                 </div>
                 <div className="flex flex-wrap gap-1">
@@ -123,6 +138,59 @@ export default function AgentsPage() {
             </div>
           ))}
         </div>
+
+        {/* Skills & Integrations Matrix */}
+        {skills.length > 0 && (
+          <div className="bg-nexus-900 border border-nexus-700 rounded-xl p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Cpu className="w-4 h-4 text-cyan-400" />
+                <h2 className="text-sm font-semibold text-nexus-100">
+                  Skills &amp; Integrations Registry ({skills.length} Registered)
+                </h2>
+              </div>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950 px-2 py-0.5 rounded border border-cyan-900">
+                LEAST PRIVILEGE MATRIX
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {skills.map((skill) => (
+                <div
+                  key={skill.id}
+                  className="p-3.5 rounded-lg bg-nexus-950/80 border border-nexus-800 flex flex-col justify-between space-y-3"
+                >
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-xs text-nexus-200">{skill.name}</span>
+                      {skill.is_consequential ? (
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-900 flex items-center gap-1">
+                          <Lock className="w-2.5 h-2.5" /> Gated
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-900">
+                          Safe
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-nexus-400 mt-1 leading-relaxed">{skill.description}</p>
+                  </div>
+
+                  <div className="pt-2 border-t border-nexus-850 space-y-1.5 text-[10px]">
+                    <div className="flex items-center justify-between text-nexus-500 font-mono">
+                      <span>Required Permission:</span>
+                      <span className="text-cyan-400">{skill.required_permission}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-nexus-500 font-mono">
+                      <span>Authorized Agents:</span>
+                      <span className="text-nexus-300">{skill.authorized_agents.join(", ")}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

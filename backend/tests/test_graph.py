@@ -23,6 +23,32 @@ async def test_graph_intent_routing_research():
     )
     assert state.intent == "research"
     assert state.target_agent_id == "research_agent"
+    assert "dossier_path" in state.metadata
+    assert any("Scout Archive" in s for s in state.steps)
+
+
+@pytest.mark.asyncio
+async def test_graph_forge_scaffold_project():
+    state = await agent_graph.execute(
+        user_prompt="Please scaffold a new project and template for my microservice code",
+        conversation_id="test-conv-scaffold",
+    )
+    assert state.intent == "coding"
+    assert state.target_agent_id == "coding_agent"
+    assert "scaffolded_project" in state.metadata
+    assert any("Forge Scaffolder" in s for s in state.steps)
+
+
+@pytest.mark.asyncio
+async def test_graph_apex_tailor_resume():
+    state = await agent_graph.execute(
+        user_prompt="Please tailor my resume and cv for a Senior Architect job",
+        conversation_id="test-conv-tailor",
+    )
+    assert state.intent == "career"
+    assert state.target_agent_id == "career_agent"
+    assert "tailored_resume_path" in state.metadata
+    assert any("Apex Career" in s for s in state.steps)
 
 
 @pytest.mark.asyncio

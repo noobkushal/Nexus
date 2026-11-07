@@ -185,6 +185,38 @@ class AgentStateGraph:
             state.metadata["briefing_path"] = briefing_info["path"]
             state.steps.append(f"Aura Engine -> Compiled executive briefing '{briefing_info['filename']}'")
 
+        elif state.target_agent_id == "coding_agent" and contains_any_word(state.user_prompt, ["scaffold", "generate", "create", "build", "template"]):
+            from app.tools.scaffolder import app_scaffolder
+            template = "fastapi_microservice"
+            p_lower = state.user_prompt.lower()
+            if "next" in p_lower or "website" in p_lower or "landing" in p_lower:
+                template = "nextjs_landing"
+            elif "cli" in p_lower:
+                template = "python_cli"
+
+            proj_slug = re.sub(r"[^a-zA-Z0-9]+", "_", state.user_prompt)[:20].strip("_") or "nexus_app"
+            scaffold_res = app_scaffolder.scaffold_project(
+                project_name=proj_slug,
+                template=template,
+                description=f"Generated via Forge agent for prompt: {state.user_prompt[:60]}",
+            )
+            state.metadata["scaffolded_project"] = scaffold_res
+            state.steps.append(f"Forge Scaffolder -> Generated {template} at storage/{scaffold_res['directory']} ({len(scaffold_res['created_files'])} files)")
+
+        elif state.target_agent_id == "career_agent" and contains_any_word(state.user_prompt, ["tailor", "resume", "cv"]):
+            from app.services.career_service import career_service
+            from app.schemas.career import ResumeTailorRequest
+            role_slug = re.sub(r"[^a-zA-Z0-9 ]+", "", state.user_prompt)[:30].strip() or "Senior Architect"
+            tailor_res = career_service.tailor_resume(
+                ResumeTailorRequest(
+                    target_role=role_slug,
+                    target_company="Target Enterprise",
+                    job_description=state.user_prompt,
+                )
+            )
+            state.metadata["tailored_resume_path"] = tailor_res.relative_path
+            state.steps.append(f"Apex Career -> Tailored CV generated at storage/{tailor_res.relative_path} ({tailor_res.match_score:.0%})")
+
         return state
 
 
