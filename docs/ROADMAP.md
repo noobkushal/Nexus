@@ -28,6 +28,9 @@
 - [x] Application & website scaffolding tool for Forge (`ApplicationScaffolder`) with automatic Git checkpointing.
 - [x] Career intelligence, job discovery, and CV tailoring engine (`CareerService`).
 - [x] Skills and Integrations registry with least-privilege permission validation (`SkillsRegistry`).
+- [x] Full SQLAlchemy relational database models for all 8 entities with auto SQLite local persistence and PostgreSQL readiness.
+- [x] Long-term memory consolidation service (`MemoryConsolidator`) extracting user directives from conversation history.
+- [x] One-click Windows PowerShell automation scripts in `scripts/` (`verify-all.ps1`, `start-backend.ps1`, `start-frontend.ps1`, `run-tests.ps1`).
 
 ## Phase 3: Future Hardware Scaling & Cloud Extensions (Planned)
 - [ ] Direct Playwright headless browser session recording.

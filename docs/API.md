@@ -165,6 +165,9 @@ Lists memory records. Query parameter: `category` (`profile`, `preferences`, `sy
 ### `POST /api/v1/memory`
 Stores a new memory record.
 
+### `POST /api/v1/memory/consolidate`
+Extracts persistent developer directives, operating preferences, and profile insights from multi-turn conversation history and consolidates them into long-term storage.
+
 ---
 
 ## 9. System Settings
