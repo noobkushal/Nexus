@@ -17,14 +17,16 @@ NEXUS is a modular, local-first, multi-agent personal AI automation platform eng
    - No background heavy processes or blocking LLM loops during startup.
 
 3. **Deterministic Safety & Security Barriers**:
-   - Consequential external actions (sending emails, publishing content, deleting files, running unreviewed code) strictly require human approval.
+   - Consequential external actions (sending emails, publishing content, deleting files, running unreviewed code) strictly require human approval before execution.
    - Filesystem tool operations are sandboxed within approved storage directories. Path traversal outside authorized roots raises `SecurityViolationError`.
-   - Conversational outputs are segregated from executed actions: NEXUS never claims an action was performed merely because an AI model suggested it.
+   - Outbound web research tool (`SandboxedWebReader`) strictly validates URLs against SSRF (blocking loopback, link-local, and private IP addresses) and purges scripts/styles from untrusted HTML.
+   - Conversational outputs are segregated from executed actions: NEXUS never claims an action was performed merely because an AI model suggested it (`claimed_actions_executed: false`).
+   - Automated Git safety checkpoints are created before modifying local projects.
    - Agents operate under least-privilege boundaries and cannot grant themselves additional permissions.
 
 4. **Multi-Agent Specialization**:
-   - **Aura (Personal Agent)**: Conversational interaction, daily briefings, task routing.
-   - **Scout (Research Agent)**: Document synthesis and web research.
+   - **Aura (Personal Agent)**: Conversational interaction, executive daily briefings, task routing.
+   - **Scout (Research Agent)**: Web research via anti-SSRF reader, untrusted HTML sanitizer, sanitized dossier archiving in `storage/documents/`.
    - **Forge (Coding Agent)**: Workspaces, automated tests, mandatory Git checkpoints before modifications.
    - **Conduit (Workflow Agent)**: Triggering and monitoring n8n automation pipelines.
    - **Apex (Career Agent)**: Resume tailoring and human-reviewed LinkedIn outreach.

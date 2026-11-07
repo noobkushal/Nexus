@@ -2,12 +2,16 @@
 
 NEXUS is a modular, local-first, multi-agent personal AI automation platform engineered for digital activities, task execution, coding, research, and communication workflows.
 
-## Key Principles & Milestone 1 Foundation
+## Key Principles & Operational Capabilities
 - **100% Dependency-Independent**: Starts and operates completely offline without Ollama, PostgreSQL, or n8n.
-- **Provider-Independent AI Architecture**: Built on a modular provider interface (`BaseLLMProvider`) with an instant, deterministic mock provider active by default. External AI providers can be connected as optional plug-ins.
-- **Multi-Agent Roster**: Defined personas with strict capability scopes and least-privilege permission barriers.
-- **Sandboxed Security**: Filesystem mutations are strictly quarantined within approved storage roots; consequential operations require human approval.
+- **Provider-Independent AI Architecture**: Built on a modular provider interface (`BaseLLMProvider`) with an instant, deterministic mock provider active by default. Optional Ollama connection (`qwen3.5:4b`) available for non-blocking local inference.
+- **Multi-Agent Roster**: Defined personas (Aura, Scout, Forge, Conduit, Apex) with strict capability scopes and least-privilege permission barriers.
+- **Sandboxed Security & Safety Barriers**: Filesystem mutations are strictly quarantined within approved storage roots; consequential operations (emails, messages, pipeline triggers, deletions) require human approval before execution.
+- **Web Research & Browser Retrieval**: Anti-SSRF URL validator and untrusted HTML sanitizer archiving research dossiers into `storage/documents/`.
+- **Communications Hub**: Outbound email drafting, messaging (LinkedIn, Slack), and calendar scheduling with mandatory approval enforcement before transmission.
+- **Executive Daily Briefings**: Automated operational summaries and scheduled reminders compiling tasks, health, and pending approvals into `storage/generated/`.
 - **Modern Next.js Dashboard**: Dark aesthetic with deep charcoal backgrounds, responsive sidebar navigation, and 9 dedicated operating views.
+- **Robust Test Suite**: 40 automated pytest tests passing with 100% success rate.
 
 ---
 

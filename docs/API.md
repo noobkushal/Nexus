@@ -174,3 +174,50 @@ Returns runtime configuration summary, active providers, and storage roots.
 
 ### `POST /api/v1/settings/provider`
 Switches the active default provider.
+
+---
+
+## 10. Communications & Outbound Messaging
+
+### `GET /api/v1/communications/emails`
+Lists all drafted, queued, and dispatched emails. Query parameter: `status`.
+
+### `POST /api/v1/communications/emails`
+Drafts a new email quarantined in the local store.
+
+### `POST /api/v1/communications/emails/{id}/request-dispatch`
+Submits an email draft to the human approval gate. Outbound dispatch is locked until operator approves.
+
+### `POST /api/v1/communications/emails/{id}/dispatch`
+Transmits the email only if human approval has been granted. Throws 403 Forbidden if unapproved.
+
+### `GET /api/v1/communications/messages`
+Lists multi-channel messages (LinkedIn, Slack). Query parameter: `channel`.
+
+### `POST /api/v1/communications/messages`
+Drafts an outbound message.
+
+### `POST /api/v1/communications/messages/{id}/request-dispatch`
+Submits message draft to human approval gate.
+
+### `POST /api/v1/communications/messages/{id}/dispatch`
+Transmits message after verified human approval.
+
+### `GET /api/v1/communications/calendar`
+Lists scheduled calendar agenda items.
+
+### `POST /api/v1/communications/calendar`
+Drafts a new calendar invite.
+
+---
+
+## 11. Daily Briefings & Reminders Engine
+
+### `GET /api/v1/briefings/latest`
+Returns the most recent executive operational briefing and its path in `storage/generated/`.
+
+### `POST /api/v1/briefings/generate`
+Compiles an on-demand Markdown briefing containing diagnostics, pending approvals, task pipeline, agent roster status, and saves it into `storage/generated/daily_briefing_<timestamp>.md`.
+
+### `GET /api/v1/briefings/reminders`
+Synthesizes actionable high-priority reminders across tasks, approvals, and communications.

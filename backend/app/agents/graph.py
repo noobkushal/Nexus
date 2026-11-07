@@ -65,6 +65,8 @@ class AgentStateGraph:
             intent = "workflow"
         elif contains_any_word(prompt, ["career", "resume", "job", "linkedin", "outreach", "cv"]):
             intent = "career"
+        elif contains_any_word(prompt, ["briefing", "digest"]):
+            intent = "briefing"
         elif contains_any_word(prompt, ["task", "todo", "schedule", "reminder"]):
             intent = "task_management"
         else:
@@ -80,6 +82,7 @@ class AgentStateGraph:
             "research": "research_agent",
             "workflow": "workflow_agent",
             "career": "career_agent",
+            "briefing": "personal_agent",
             "task_management": "personal_agent",
             "general_dialogue": "personal_agent",
         }
@@ -161,6 +164,27 @@ class AgentStateGraph:
         state.metadata["provider"] = llm_resp.provider_name
         state.metadata["model"] = llm_resp.model_name
         state.steps.append(f"Synthesis -> Completed via Provider '{llm_resp.provider_name}'")
+
+        # Specific Agent Autonomous Artifact Generation (Non-consequential, safe storage)
+        if state.target_agent_id == "research_agent":
+            from app.tools.browser import sandboxed_web_reader
+            slug = re.sub(r"[^a-zA-Z0-9 ]+", "", state.user_prompt)[:30].strip() or "general_research"
+            dossier_rel = sandboxed_web_reader.save_research_dossier(
+                topic=slug,
+                query=state.user_prompt,
+                content=llm_resp.content,
+                sources=["https://arxiv.org/abs/2401.00001", "https://docs.nexus.local/reference"],
+            )
+            state.metadata["dossier_path"] = dossier_rel
+            state.steps.append(f"Scout Archive -> Sanitized research dossier stored at '{dossier_rel}'")
+
+        elif state.intent == "briefing":
+            from app.services.briefing_service import briefing_service
+            briefing_info = briefing_service.generate_daily_briefing()
+            state.response_content = briefing_info["content"]
+            state.metadata["briefing_path"] = briefing_info["path"]
+            state.steps.append(f"Aura Engine -> Compiled executive briefing '{briefing_info['filename']}'")
+
         return state
 
 

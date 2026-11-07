@@ -5,7 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.api.agents import router as agents_router
 from app.api.approvals import router as approvals_router
+from app.api.briefings import router as briefings_router
 from app.api.chat import router as chat_router
+from app.api.communications import router as communications_router
 from app.api.health import router as health_router
 from app.api.memory import router as memory_router
 from app.api.settings import router as settings_router
@@ -74,6 +76,8 @@ app.include_router(storage_router)
 app.include_router(settings_router)
 app.include_router(workflows_router)
 app.include_router(memory_router)
+app.include_router(communications_router)
+app.include_router(briefings_router)
 
 
 @app.get("/", tags=["Root"])

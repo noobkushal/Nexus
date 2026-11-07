@@ -22,6 +22,10 @@ class MockProvider(BaseLLMProvider):
     def is_mock(self) -> bool:
         return True
 
+    @property
+    def model_name(self) -> str:
+        return self._model_name
+
     async def check_status(self) -> ProviderStatus:
         return ProviderStatus(
             name=self.name,

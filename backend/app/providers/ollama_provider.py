@@ -35,6 +35,10 @@ class OllamaProvider(BaseLLMProvider):
     def is_mock(self) -> bool:
         return False
 
+    @property
+    def model_name(self) -> str:
+        return self._model_name
+
     async def check_status(self) -> ProviderStatus:
         info = await self._client.check_connectivity()
         is_avail = info.get("connected", False) and info.get("model_available", False)

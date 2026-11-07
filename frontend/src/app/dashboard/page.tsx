@@ -7,15 +7,21 @@ import {
   Activity,
   AlertTriangle,
   Bot,
+  Check,
   CheckCircle2,
   CheckSquare,
   Clock,
+  Copy,
   Cpu,
   Database,
+  Eye,
+  FileText,
   Layers,
   MessageSquare,
   Play,
+  RefreshCw,
   ShieldCheck,
+  X,
   XCircle,
   Zap,
 } from "lucide-react";
@@ -70,22 +76,44 @@ interface ApprovalItem {
   status: string;
 }
 
+interface BriefingData {
+  filename: string;
+  path: string;
+  generated_at: string;
+  content: string;
+}
+
+interface ReminderItem {
+  type: string;
+  priority: string;
+  title: string;
+  description: string;
+  reference_id: string;
+}
+
 export default function DashboardPage() {
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [agents, setAgents] = useState<AgentItem[]>([]);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
+  const [briefing, setBriefing] = useState<BriefingData | null>(null);
+  const [reminders, setReminders] = useState<ReminderItem[]>([]);
+  const [generatingBriefing, setGeneratingBriefing] = useState(false);
+  const [showBriefingModal, setShowBriefingModal] = useState(false);
+  const [copiedBriefing, setCopiedBriefing] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadAll = async () => {
     try {
-      const [hRes, aRes, tRes, actRes, appRes] = await Promise.all([
+      const [hRes, aRes, tRes, actRes, appRes, bRes, rRes] = await Promise.all([
         fetch("http://127.0.0.1:8000/api/v1/health"),
         fetch("http://127.0.0.1:8000/api/v1/agents"),
         fetch("http://127.0.0.1:8000/api/v1/tasks"),
         fetch("http://127.0.0.1:8000/api/v1/agents/activities"),
         fetch("http://127.0.0.1:8000/api/v1/approvals?status=pending"),
+        fetch("http://127.0.0.1:8000/api/v1/briefings/latest"),
+        fetch("http://127.0.0.1:8000/api/v1/briefings/reminders"),
       ]);
 
       if (hRes.ok) setHealth(await hRes.json());
@@ -96,11 +124,39 @@ export default function DashboardPage() {
       }
       if (actRes.ok) setActivities(await actRes.json());
       if (appRes.ok) setApprovals(await appRes.json());
+      if (bRes.ok) setBriefing(await bRes.json());
+      if (rRes.ok) setReminders(await rRes.json());
     } catch (err) {
       console.error("Dashboard data load error:", err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGenerateBriefing = async () => {
+    setGeneratingBriefing(true);
+    try {
+      const res = await fetch("http://127.0.0.1:8000/api/v1/briefings/generate", {
+        method: "POST",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBriefing(data);
+        const rRes = await fetch("http://127.0.0.1:8000/api/v1/briefings/reminders");
+        if (rRes.ok) setReminders(await rRes.json());
+      }
+    } catch (err) {
+      console.error("Failed to generate briefing", err);
+    } finally {
+      setGeneratingBriefing(false);
+    }
+  };
+
+  const handleCopyBriefing = () => {
+    if (!briefing) return;
+    navigator.clipboard.writeText(briefing.content);
+    setCopiedBriefing(true);
+    setTimeout(() => setCopiedBriefing(false), 2000);
   };
 
   useEffect(() => {
@@ -269,6 +325,81 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
+
+        {/* Executive Daily Briefing & Scheduled Reminders Bar */}
+        <div className="bg-nexus-900 border border-nexus-700 rounded-xl p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-lg bg-indigo-950/70 border border-indigo-800 text-indigo-400">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-nexus-100 flex items-center gap-2">
+                  <span>Executive Daily Operator Briefing</span>
+                  {briefing && (
+                    <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950 px-2 py-0.5 rounded border border-cyan-900">
+                      {briefing.filename}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-nexus-400">
+                  {briefing
+                    ? `Generated at ${new Date(briefing.generated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} • Persisted to storage/${briefing.path}`
+                    : "No briefing generated yet for today."}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {briefing && (
+                <button
+                  onClick={() => setShowBriefingModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-nexus-700 bg-nexus-850 hover:bg-nexus-800 text-xs font-medium text-nexus-200 transition-colors"
+                >
+                  <Eye className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>View Briefing</span>
+                </button>
+              )}
+              <button
+                onClick={handleGenerateBriefing}
+                disabled={generatingBriefing}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-md shadow-cyan-900/30 transition-all disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${generatingBriefing ? "animate-spin" : ""}`} />
+                <span>{generatingBriefing ? "Compiling..." : "Generate Fresh Briefing"}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Active Reminders Row */}
+          {reminders.length > 0 && (
+            <div className="pt-3 border-t border-nexus-800/80">
+              <div className="text-[11px] font-semibold text-nexus-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <Clock className="w-3 h-3 text-amber-400" />
+                <span>Actionable Reminders & Agenda ({reminders.length})</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                {reminders.map((rem, idx) => (
+                  <div
+                    key={idx}
+                    className="p-2.5 rounded-lg bg-nexus-950/70 border border-nexus-800 flex items-start gap-2.5 text-xs"
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${
+                        rem.priority === "urgent" || rem.priority === "critical"
+                          ? "bg-red-400 shadow-sm shadow-red-500/50"
+                          : "bg-amber-400"
+                      }`}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-nexus-200 truncate">{rem.title}</div>
+                      <div className="text-[10px] text-nexus-400 truncate">{rem.description}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Middle Section: Registered Agents & Quick Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -453,6 +584,54 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Executive Briefing Modal */}
+        {showBriefingModal && briefing && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-nexus-900 border border-nexus-700 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+              <div className="p-4 border-b border-nexus-700 flex items-center justify-between bg-nexus-950/60">
+                <div className="flex items-center gap-2.5">
+                  <FileText className="w-4 h-4 text-cyan-400" />
+                  <span className="text-sm font-semibold text-nexus-100">{briefing.filename}</span>
+                  <span className="text-[10px] font-mono text-nexus-400 bg-nexus-850 px-2 py-0.5 rounded border border-nexus-750">
+                    storage/{briefing.path}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleCopyBriefing}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-nexus-800 hover:bg-nexus-750 border border-nexus-700 text-xs text-nexus-200 transition-colors"
+                  >
+                    {copiedBriefing ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-emerald-400">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy Markdown</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setShowBriefingModal(false)}
+                    className="p-1 rounded-lg hover:bg-nexus-800 text-nexus-400 hover:text-nexus-200 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="p-6 overflow-y-auto flex-1 font-mono text-xs text-nexus-200 bg-nexus-950/40 whitespace-pre-wrap leading-relaxed">
+                {briefing.content}
+              </div>
+              <div className="p-3 border-t border-nexus-800 bg-nexus-950/80 text-[11px] text-nexus-500 flex justify-between">
+                <span>Compiled via NEXUS Briefing Engine</span>
+                <span>{new Date(briefing.generated_at).toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
