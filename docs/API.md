@@ -13,6 +13,25 @@ Interactive OpenAPI Documentation:
 ### `GET /health` & `GET /api/v1/health`
 Returns system status, active provider, persistence mode, and dependency readiness.
 
+### `GET /model-status` & `GET /api/v1/model-status`
+Non-blocking inspection of optional local Ollama connectivity and target model presence (`qwen3.5:4b`).
+
+**Response:**
+```json
+{
+  "target_model": "qwen3.5:4b",
+  "ollama_base_url": "http://127.0.0.1:11434",
+  "connectivity": {
+    "connected": true,
+    "target_model": "qwen3.5:4b",
+    "model_available": true,
+    "installed_models": ["qwen3.5:4b"]
+  },
+  "active_system_provider": "mock",
+  "note": "NEXUS foundation is independent of Ollama; this endpoint is for optional local hardware diagnostic."
+}
+```
+
 **Response:**
 ```json
 {
@@ -120,6 +139,27 @@ Retrieves specific agent capabilities, approval barriers, and permissions.
 
 ### `GET /api/v1/agents/activities`
 Returns audit log trail of recent agent operations.
+
+---
+
+## 5. Human-in-the-Loop Action Approvals
+
+### `GET /api/v1/approvals`
+Lists consequential action proposals submitted by agents requiring human approval. Query parameter: `status` (`pending`, `approved`, `rejected`).
+
+### `POST /api/v1/approvals`
+Submits an action proposal from an agent into the review queue.
+
+### `POST /api/v1/approvals/{approval_id}/decision`
+Submits human reviewer decision (`approved` or `rejected`) with audit notes.
+
+**Request Body:**
+```json
+{
+  "decision": "approved",
+  "reviewer_notes": "Reviewed and verified safety boundary"
+}
+```
 
 ---
 

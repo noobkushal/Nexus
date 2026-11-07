@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Activity, Shield, Sparkles, RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { Activity, Shield, Sparkles, RefreshCw, AlertTriangle } from "lucide-react";
 
 interface HealthData {
   status: string;
@@ -18,18 +19,25 @@ interface HealthData {
 
 export default function Header({ title, subtitle }: { title: string; subtitle?: string }) {
   const [health, setHealth] = useState<HealthData | null>(null);
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(0);
   const [loading, setLoading] = useState(false);
 
-  const fetchHealth = async () => {
+  const fetchHealthAndApprovals = async () => {
     try {
       setLoading(true);
-      const res = await fetch("http://127.0.0.1:8000/api/v1/health", { cache: "no-store" });
-      if (res.ok) {
-        const data = await res.json();
+      const [hRes, aRes] = await Promise.all([
+        fetch("http://127.0.0.1:8000/api/v1/health", { cache: "no-store" }),
+        fetch("http://127.0.0.1:8000/api/v1/approvals?status=pending", { cache: "no-store" }),
+      ]);
+      if (hRes.ok) {
+        const data = await hRes.json();
         setHealth(data);
       }
+      if (aRes.ok) {
+        const aData = await aRes.json();
+        setPendingApprovalsCount(aData.length || 0);
+      }
     } catch {
-      // Backend not running yet or connection failed
       setHealth(null);
     } finally {
       setLoading(false);
@@ -37,8 +45,8 @@ export default function Header({ title, subtitle }: { title: string; subtitle?: 
   };
 
   useEffect(() => {
-    fetchHealth();
-    const interval = setInterval(fetchHealth, 10000);
+    fetchHealthAndApprovals();
+    const interval = setInterval(fetchHealthAndApprovals, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -52,6 +60,17 @@ export default function Header({ title, subtitle }: { title: string; subtitle?: 
       </div>
 
       <div className="flex items-center gap-3">
+        {/* Pending Approvals Pill */}
+        {pendingApprovalsCount > 0 && (
+          <Link
+            href="/career"
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-950/80 border border-amber-800 text-amber-300 text-xs font-mono hover:bg-amber-900 transition-colors animate-pulse"
+          >
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+            <span>{pendingApprovalsCount} Approval{pendingApprovalsCount > 1 ? "s" : ""} Pending</span>
+          </Link>
+        )}
+
         {/* Backend Connectivity Status */}
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-nexus-800 border border-nexus-700 text-xs">
           <span
@@ -68,13 +87,13 @@ export default function Header({ title, subtitle }: { title: string; subtitle?: 
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-nexus-850 border border-nexus-700 text-xs text-nexus-300">
           <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
           <span className="text-[11px] font-mono">
-            Provider: <strong className="text-nexus-100">{health?.ai_provider?.name || "mock"}</strong> (Deterministic)
+            Provider: <strong className="text-nexus-100">{health?.ai_provider?.name || "mock"}</strong>
           </span>
         </div>
 
         {/* Refresh Button */}
         <button
-          onClick={fetchHealth}
+          onClick={fetchHealthAndApprovals}
           title="Refresh health status"
           className="p-1.5 rounded-lg border border-nexus-700 hover:bg-nexus-800 text-nexus-400 hover:text-nexus-200 transition-colors"
         >

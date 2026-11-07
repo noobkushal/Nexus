@@ -4,6 +4,7 @@ from typing import Any, Dict
 from fastapi import APIRouter
 from app.core.config import settings
 from app.providers.registry import provider_registry
+from app.tools.ollama import OllamaClient
 
 router = APIRouter(tags=["Health"])
 
@@ -40,4 +41,19 @@ async def health_check() -> Dict[str, Any]:
             "postgres_required": False,
             "n8n_required": False,
         },
+    }
+
+
+@router.get("/model-status")
+@router.get("/api/v1/model-status")
+async def model_status_check() -> Dict[str, Any]:
+    """Inspects optional local Ollama connectivity and target model presence non-blockingly."""
+    client = OllamaClient()
+    conn_info = await client.check_connectivity()
+    return {
+        "target_model": settings.OLLAMA_MODEL,
+        "ollama_base_url": settings.OLLAMA_BASE_URL,
+        "connectivity": conn_info,
+        "active_system_provider": provider_registry.active_provider.name,
+        "note": "NEXUS foundation is independent of Ollama; this endpoint is for optional local hardware diagnostic.",
     }

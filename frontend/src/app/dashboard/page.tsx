@@ -5,6 +5,7 @@ import Header from "@/components/Header";
 import Link from "next/link";
 import {
   Activity,
+  AlertTriangle,
   Bot,
   CheckCircle2,
   CheckSquare,
@@ -15,6 +16,7 @@ import {
   MessageSquare,
   Play,
   ShieldCheck,
+  XCircle,
   Zap,
 } from "lucide-react";
 
@@ -59,38 +61,66 @@ interface ActivityItem {
   status: string;
 }
 
+interface ApprovalItem {
+  id: string;
+  agent_id: string;
+  action_type: string;
+  title: string;
+  description: string;
+  status: string;
+}
+
 export default function DashboardPage() {
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [agents, setAgents] = useState<AgentItem[]>([]);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [hRes, aRes, tRes, actRes] = await Promise.all([
-          fetch("http://127.0.0.1:8000/api/v1/health"),
-          fetch("http://127.0.0.1:8000/api/v1/agents"),
-          fetch("http://127.0.0.1:8000/api/v1/tasks"),
-          fetch("http://127.0.0.1:8000/api/v1/agents/activities"),
-        ]);
+  const loadAll = async () => {
+    try {
+      const [hRes, aRes, tRes, actRes, appRes] = await Promise.all([
+        fetch("http://127.0.0.1:8000/api/v1/health"),
+        fetch("http://127.0.0.1:8000/api/v1/agents"),
+        fetch("http://127.0.0.1:8000/api/v1/tasks"),
+        fetch("http://127.0.0.1:8000/api/v1/agents/activities"),
+        fetch("http://127.0.0.1:8000/api/v1/approvals?status=pending"),
+      ]);
 
-        if (hRes.ok) setHealth(await hRes.json());
-        if (aRes.ok) setAgents(await aRes.json());
-        if (tRes.ok) {
-          const tData = await tRes.json();
-          setTasks(tData.tasks || []);
-        }
-        if (actRes.ok) setActivities(await actRes.json());
-      } catch (err) {
-        console.error("Dashboard data load error:", err);
-      } finally {
-        setLoading(false);
+      if (hRes.ok) setHealth(await hRes.json());
+      if (aRes.ok) setAgents(await aRes.json());
+      if (tRes.ok) {
+        const tData = await tRes.json();
+        setTasks(tData.tasks || []);
       }
+      if (actRes.ok) setActivities(await actRes.json());
+      if (appRes.ok) setApprovals(await appRes.json());
+    } catch (err) {
+      console.error("Dashboard data load error:", err);
+    } finally {
+      setLoading(false);
     }
-    loadData();
+  };
+
+  useEffect(() => {
+    loadAll();
   }, []);
+
+  const handleDecision = async (id: string, decision: "approved" | "rejected") => {
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/api/v1/approvals/${id}/decision`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision }),
+      });
+      if (res.ok) {
+        loadAll();
+      }
+    } catch (err) {
+      console.error("Failed to submit decision", err);
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col bg-nexus-950">
@@ -189,6 +219,56 @@ export default function DashboardPage() {
             <div className="text-[11px] text-nexus-500 mt-1">Simulated webhook dispatcher</div>
           </div>
         </div>
+
+        {/* Action Approval Gate (Human in the loop) */}
+        {approvals.length > 0 && (
+          <div className="bg-nexus-900 border border-amber-800/80 rounded-xl p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-400" />
+                <h2 className="text-sm font-semibold text-nexus-100">
+                  Human Approval Gate ({approvals.length} Actions Awaiting Review)
+                </h2>
+              </div>
+              <span className="text-[10px] font-mono text-amber-400 bg-amber-950 px-2 py-0.5 rounded border border-amber-900">
+                BARRIER ACTIVE
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {approvals.map((appr) => (
+                <div
+                  key={appr.id}
+                  className="p-3 rounded-lg bg-nexus-950 border border-nexus-800 flex flex-col justify-between space-y-2"
+                >
+                  <div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-nexus-200">{appr.title}</span>
+                      <span className="text-[10px] font-mono text-nexus-400 uppercase">
+                        {appr.agent_id}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-nexus-400 mt-1">{appr.description}</p>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2 border-t border-nexus-850">
+                    <button
+                      onClick={() => handleDecision(appr.id, "rejected")}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded border border-nexus-700 hover:bg-red-950/40 text-[11px] text-red-400 transition-colors"
+                    >
+                      <XCircle className="w-3 h-3" /> Reject
+                    </button>
+                    <button
+                      onClick={() => handleDecision(appr.id, "approved")}
+                      className="flex items-center gap-1 px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[11px] transition-colors"
+                    >
+                      <CheckCircle2 className="w-3 h-3" /> Approve
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Middle Section: Registered Agents & Quick Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

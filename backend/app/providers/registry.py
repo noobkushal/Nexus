@@ -4,6 +4,7 @@ from app.core.config import settings
 from app.core.logging import logger
 from app.providers.base import BaseLLMProvider, ProviderStatus
 from app.providers.mock_provider import MockProvider
+from app.providers.ollama_provider import OllamaProvider
 
 
 class ProviderRegistry:
@@ -11,9 +12,12 @@ class ProviderRegistry:
 
     def __init__(self):
         self._providers: Dict[str, BaseLLMProvider] = {}
-        # Always register the deterministic mock provider
+        # Always register the deterministic mock provider first
         self.register_provider(MockProvider())
-        self._active_provider_name: str = "mock"
+        # Register optional Ollama provider (does not execute or block at startup)
+        self.register_provider(OllamaProvider())
+        # Default active provider is always 'mock' for standalone safety
+        self._active_provider_name: str = settings.DEFAULT_PROVIDER if settings.DEFAULT_PROVIDER in ["mock"] else "mock"
 
     def register_provider(self, provider: BaseLLMProvider) -> None:
         """Registers a new provider."""

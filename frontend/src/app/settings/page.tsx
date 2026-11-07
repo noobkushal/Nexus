@@ -2,7 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
-import { Settings, Cpu, HardDrive, Shield, Database, RefreshCw, CheckCircle2 } from "lucide-react";
+import { Settings, Cpu, HardDrive, Shield, Database, RefreshCw, CheckCircle2, Activity } from "lucide-react";
+
+interface ProviderStatus {
+  name: string;
+  is_mock: boolean;
+  is_available: boolean;
+  details: any;
+  error_message?: string;
+}
 
 interface SettingsData {
   project_name: string;
@@ -12,13 +20,26 @@ interface SettingsData {
   port: number;
   log_level: string;
   active_provider: string;
-  registered_providers: { name: string; is_mock: boolean; is_available: boolean; details: any }[];
+  registered_providers: ProviderStatus[];
   storage_directory: string;
   database: { type: string; url_configured: boolean };
 }
 
+interface ModelStatusData {
+  target_model: string;
+  ollama_base_url: string;
+  connectivity: {
+    connected: boolean;
+    model_available?: boolean;
+    installed_models?: string[];
+    error?: string;
+  };
+  active_system_provider: string;
+}
+
 export default function SettingsPage() {
   const [data, setData] = useState<SettingsData | null>(null);
+  const [modelStatus, setModelStatus] = useState<ModelStatusData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedProvider, setSelectedProvider] = useState("mock");
   const [savedNotice, setSavedNotice] = useState(false);
@@ -26,11 +47,17 @@ export default function SettingsPage() {
   const loadSettings = async () => {
     try {
       setLoading(true);
-      const res = await fetch("http://127.0.0.1:8000/api/v1/settings");
-      if (res.ok) {
-        const json = await res.json();
+      const [sRes, mRes] = await Promise.all([
+        fetch("http://127.0.0.1:8000/api/v1/settings"),
+        fetch("http://127.0.0.1:8000/api/v1/model-status"),
+      ]);
+      if (sRes.ok) {
+        const json = await sRes.json();
         setData(json);
         setSelectedProvider(json.active_provider);
+      }
+      if (mRes.ok) {
+        setModelStatus(await mRes.json());
       }
     } catch (err) {
       console.error("Failed to load settings", err);
@@ -98,7 +125,7 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* AI Provider Selector */}
+        {/* AI Provider Selector & Diagnostic */}
         <div className="bg-nexus-900 border border-nexus-700 rounded-xl p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -113,7 +140,7 @@ export default function SettingsPage() {
           </div>
 
           <p className="text-xs text-nexus-400 leading-relaxed">
-            NEXUS is engineered to be 100% provider-independent. You can run without Ollama or external models, or connect them when available.
+            NEXUS is 100% provider-independent. You can run purely on the instant mock engine without dependencies, or connect your local Ollama runner when available.
           </p>
 
           <div className="flex items-center gap-4">
@@ -122,7 +149,8 @@ export default function SettingsPage() {
               onChange={(e) => setSelectedProvider(e.target.value)}
               className="bg-nexus-950 border border-nexus-700 rounded-lg px-3 py-2 text-xs text-nexus-100 font-mono focus:outline-none focus:border-cyan-500"
             >
-              <option value="mock">Deterministic Mock Provider (Offline Safe)</option>
+              <option value="mock">Deterministic Mock Provider (Offline Safe, Active)</option>
+              <option value="ollama">Ollama Local Engine (qwen3.5:4b @ 127.0.0.1:11434)</option>
             </select>
             <button
               onClick={handleProviderSwitch}
@@ -132,9 +160,31 @@ export default function SettingsPage() {
             </button>
           </div>
 
-          <div className="p-3 rounded-lg bg-nexus-950 border border-nexus-800 text-[11px] font-mono text-nexus-400">
-            Active Provider: <strong className="text-cyan-400">{data?.active_provider || "mock"}</strong> &bull; Zero external API dependencies required.
-          </div>
+          {/* Model Status Diagnostic Box */}
+          {modelStatus && (
+            <div className="p-3.5 rounded-lg bg-nexus-950 border border-nexus-800 text-[11px] font-mono space-y-2">
+              <div className="flex items-center justify-between text-nexus-300">
+                <span>Local Ollama Diagnostic:</span>
+                <span
+                  className={`px-2 py-0.5 rounded text-[10px] ${
+                    modelStatus.connectivity.connected
+                      ? "bg-emerald-950 text-emerald-400 border border-emerald-900"
+                      : "bg-nexus-850 text-nexus-500 border border-nexus-800"
+                  }`}
+                >
+                  {modelStatus.connectivity.connected ? "CONNECTED" : "OFFLINE / STANDBY"}
+                </span>
+              </div>
+              <div className="text-nexus-400">
+                Target Model: <strong className="text-nexus-200">{modelStatus.target_model}</strong> &bull; Endpoint: {modelStatus.ollama_base_url}
+              </div>
+              {modelStatus.connectivity.connected && (
+                <div className="text-nexus-500 text-[10px]">
+                  Detected Installed Models: {modelStatus.connectivity.installed_models?.join(", ") || "None"}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* System Details */}
