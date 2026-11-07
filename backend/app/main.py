@@ -6,11 +6,13 @@ from fastapi.responses import JSONResponse
 from app.api.agents import router as agents_router
 from app.api.approvals import router as approvals_router
 from app.api.briefings import router as briefings_router
+from app.api.career import router as career_router
 from app.api.chat import router as chat_router
 from app.api.communications import router as communications_router
 from app.api.health import router as health_router
 from app.api.memory import router as memory_router
 from app.api.settings import router as settings_router
+from app.api.skills import router as skills_router
 from app.api.storage import router as storage_router
 from app.api.tasks import router as tasks_router
 from app.api.workflows import router as workflows_router
@@ -78,6 +80,8 @@ app.include_router(workflows_router)
 app.include_router(memory_router)
 app.include_router(communications_router)
 app.include_router(briefings_router)
+app.include_router(career_router)
+app.include_router(skills_router)
 
 
 @app.get("/", tags=["Root"])
