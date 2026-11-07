@@ -1,11 +1,11 @@
-# NEXUS AI — Start Frontend Dashboard (PowerShell)
+# NEXUS AI - Start Frontend Dashboard
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectRoot = Split-Path -Parent $ScriptDir
 $FrontendDir = Join-Path $ProjectRoot "frontend"
 
 Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host " NEXUS AI — Launching Mission Control UI" -ForegroundColor Cyan
+Write-Host " NEXUS AI - Launching Mission Control UI" -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
 
 Set-Location $FrontendDir

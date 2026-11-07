@@ -1,4 +1,4 @@
-# NEXUS AI — Start Backend Server (PowerShell)
+# NEXUS AI - Start Backend Server
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectRoot = Split-Path -Parent $ScriptDir
@@ -6,7 +6,7 @@ $BackendDir = Join-Path $ProjectRoot "backend"
 $PythonExe = Join-Path $BackendDir ".venv\Scripts\python.exe"
 
 Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host " NEXUS AI — Launching Backend Service" -ForegroundColor Cyan
+Write-Host " NEXUS AI - Launching Backend Service" -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
 
 if (-not (Test-Path $PythonExe)) {
