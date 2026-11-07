@@ -32,50 +32,17 @@ Non-blocking inspection of optional local Ollama connectivity and target model p
 }
 ```
 
-**Response:**
-```json
-{
-  "status": "operational",
-  "service": "NEXUS AI Backend",
-  "environment": "development",
-  "timestamp": "2026-11-07T14:00:00Z",
-  "ai_provider": {
-    "name": "mock",
-    "is_mock": true,
-    "is_available": true,
-    "details": {
-      "model": "nexus-mock-engine-v1",
-      "mode": "deterministic_mock"
-    }
-  },
-  "database": {
-    "type": "sqlite_in_memory",
-    "is_available": true
-  },
-  "automation": {
-    "n8n_connected": false,
-    "mode": "standalone_interface"
-  },
-  "dependencies": {
-    "ollama_required": false,
-    "external_apis_required": false,
-    "postgres_required": false,
-    "n8n_required": false
-  }
-}
-```
-
 ---
 
-## 2. Chat & Interaction
+## 2. Chat & Multi-Agent State Graph
 
 ### `POST /api/v1/chat`
-Sends a prompt message to the active provider and returns a validated, deterministic response.
+Sends a prompt message through the directed state graph (intent classification &rarr; agent routing &rarr; safety guard &rarr; response synthesis).
 
 **Request Body:**
 ```json
 {
-  "message": "Check system status",
+  "message": "Can you check git code and run a test?",
   "conversation_id": "optional-uuid-string",
   "temperature": 0.7
 }
@@ -84,17 +51,21 @@ Sends a prompt message to the active provider and returns a validated, determini
 **Response:**
 ```json
 {
-  "response": "[MOCK RESPONSE — NEXUS Foundation]\nSystem Status: Operational...",
-  "conversation_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "response": "[MOCK RESPONSE] Received prompt...",
+  "conversation_id": "2f6b6148-6e63-41f3-8775-bfdc681e6b16",
   "provider": "mock",
   "model": "nexus-mock-engine-v1",
   "is_mock": true,
   "claimed_actions_executed": false,
-  "timestamp": "2026-11-07T14:00:00Z",
-  "metadata": {
-    "tokens_used": 34,
-    "history_length": 3
-  }
+  "intent": "coding",
+  "routed_agent": "coding_agent",
+  "requires_approval": false,
+  "steps": [
+    "Intent Classification -> 'coding'",
+    "Graph Router -> Assigned to Agent 'Forge' (coding_agent)",
+    "Safety Guard -> Read-only / Non-consequential query (Autonomous execution permitted)",
+    "Synthesis -> Completed via Provider 'mock'"
+  ]
 }
 ```
 
@@ -110,16 +81,6 @@ Lists all tasks. Query parameters: `status` (`pending`, `in_progress`, `complete
 
 ### `POST /api/v1/tasks`
 Creates a new task.
-
-**Request Body:**
-```json
-{
-  "title": "Review codebase security boundaries",
-  "description": "Verify sandboxed filesystem checks",
-  "priority": "high",
-  "assigned_agent": "coding_agent"
-}
-```
 
 ### `PATCH /api/v1/tasks/{task_id}`
 Updates task status or priority.
@@ -153,17 +114,37 @@ Submits an action proposal from an agent into the review queue.
 ### `POST /api/v1/approvals/{approval_id}/decision`
 Submits human reviewer decision (`approved` or `rejected`) with audit notes.
 
-**Request Body:**
-```json
-{
-  "decision": "approved",
-  "reviewer_notes": "Reviewed and verified safety boundary"
-}
-```
+---
+
+## 6. Sandboxed Storage & Git Checkpoints
+
+### `GET /api/v1/storage/compartments`
+Lists approved storage compartments (`profile`, `documents`, `media`, `projects`, `generated`, `attachments`).
+
+### `GET /api/v1/storage/files`
+Lists files inside approved storage directories with size and timestamp metadata. Query parameter: `compartment` (`documents`, etc.).
+
+### `GET /api/v1/storage/read`
+Reads text content of a file within the sandbox. Query parameter: `path`. Returns 403 Forbidden on path traversal escape attempts.
+
+### `POST /api/v1/storage/write`
+Writes content to a sandboxed file within approved directory boundaries.
+
+### `DELETE /api/v1/storage/delete`
+Safely deletes a sandboxed file.
+
+### `GET /api/v1/storage/git/status`
+Returns live branch, current commit hash, and uncommitted modification count.
+
+### `GET /api/v1/storage/git/checkpoints`
+Lists recent Git commit snapshots. Query parameter: `limit`.
+
+### `POST /api/v1/storage/git/checkpoint`
+Creates an automated Git safety commit snapshot before consequential edits.
 
 ---
 
-## 5. Workflows & Automation (n8n Bridge)
+## 7. Workflows & Automation (n8n Bridge)
 
 ### `GET /api/v1/workflows`
 Lists registered automated pipelines.
@@ -176,7 +157,7 @@ Returns execution log and status history.
 
 ---
 
-## 6. Long-Term Memory
+## 8. Long-Term Memory
 
 ### `GET /api/v1/memory`
 Lists memory records. Query parameter: `category` (`profile`, `preferences`, `system`).
@@ -184,19 +165,9 @@ Lists memory records. Query parameter: `category` (`profile`, `preferences`, `sy
 ### `POST /api/v1/memory`
 Stores a new memory record.
 
-**Request Body:**
-```json
-{
-  "category": "preferences",
-  "key": "editor",
-  "content": "Prefers dark themes with high information density",
-  "importance": 2
-}
-```
-
 ---
 
-## 7. System Settings
+## 9. System Settings
 
 ### `GET /api/v1/settings`
 Returns runtime configuration summary, active providers, and storage roots.

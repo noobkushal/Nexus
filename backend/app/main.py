@@ -9,6 +9,7 @@ from app.api.chat import router as chat_router
 from app.api.health import router as health_router
 from app.api.memory import router as memory_router
 from app.api.settings import router as settings_router
+from app.api.storage import router as storage_router
 from app.api.tasks import router as tasks_router
 from app.api.workflows import router as workflows_router
 from app.core.config import settings
@@ -69,6 +70,7 @@ app.include_router(chat_router)
 app.include_router(tasks_router)
 app.include_router(agents_router)
 app.include_router(approvals_router)
+app.include_router(storage_router)
 app.include_router(settings_router)
 app.include_router(workflows_router)
 app.include_router(memory_router)
