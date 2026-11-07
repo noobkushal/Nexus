@@ -2,6 +2,7 @@
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
+from app.agents.graph import agent_graph
 from app.core.logging import get_audit_logger, logger
 from app.providers.base import ChatMessage, MessageRole
 from app.providers.registry import provider_registry
@@ -15,7 +16,7 @@ def utc_now() -> datetime:
 
 
 class ChatService:
-    """In-memory conversation manager and provider coordinator."""
+    """In-memory conversation manager and provider coordinator with state graph execution."""
 
     def __init__(self):
         # Maps conversation_id -> List[ChatMessageSchema]
@@ -54,44 +55,38 @@ class ChatService:
         # Audit log user request
         audit_logger.info(f"Chat request | conv={cid} | user_msg_len={len(request.message)}")
 
-        # Select provider
-        provider = provider_registry.get_provider(request.provider)
-
-        # Convert to provider format
-        provider_messages = [
-            ChatMessage(
-                role=MessageRole(msg.role) if msg.role in [r.value for r in MessageRole] else MessageRole.USER,
-                content=msg.content,
-            )
-            for msg in self._conversations[cid]
-        ]
-
-        # Async provider generation
-        llm_resp = await provider.generate_chat_response(
-            messages=provider_messages,
-            temperature=request.temperature or 0.7,
+        # Execute Multi-Agent State Graph
+        graph_result = await agent_graph.execute(
+            user_prompt=request.message,
+            conversation_id=cid,
         )
 
         # Record assistant reply
         assistant_msg = ChatMessageSchema(
             role="assistant",
-            content=llm_resp.content,
+            content=graph_result.response_content,
             timestamp=utc_now(),
         )
         self._conversations[cid].append(assistant_msg)
 
+        provider = provider_registry.active_provider
+
         # Strict safety verification:
         # NEXUS never claims an external action was completed just because LLM suggested it.
         return ChatResponse(
-            response=llm_resp.content,
+            response=graph_result.response_content,
             conversation_id=cid,
-            provider=llm_resp.provider_name,
-            model=llm_resp.model_name,
-            is_mock=llm_resp.is_mock,
+            provider=provider.name,
+            model=graph_result.metadata.get("model", "nexus-mock-engine-v1"),
+            is_mock=provider.is_mock,
             claimed_actions_executed=False,
             timestamp=utc_now(),
+            intent=graph_result.intent,
+            routed_agent=graph_result.target_agent_id,
+            requires_approval=graph_result.requires_approval,
+            approval_id=graph_result.approval_id,
+            steps=graph_result.steps,
             metadata={
-                "tokens_used": llm_resp.tokens_used,
                 "history_length": len(self._conversations[cid]),
             },
         )

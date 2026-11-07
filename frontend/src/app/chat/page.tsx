@@ -2,13 +2,18 @@
 
 import { useState } from "react";
 import Header from "@/components/Header";
-import { Send, Bot, User, ShieldAlert, Sparkles, Terminal } from "lucide-react";
+import { Send, Bot, User, ShieldAlert, Sparkles, ChevronDown, ChevronRight, Activity, GitFork } from "lucide-react";
 
 interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
   is_mock?: boolean;
   claimed_actions_executed?: boolean;
+  intent?: string;
+  routed_agent?: string;
+  steps?: string[];
+  requires_approval?: boolean;
+  approval_id?: string;
 }
 
 export default function ChatPage() {
@@ -21,11 +26,20 @@ export default function ChatPage() {
         "You can query system status, explore agent capabilities, or discuss upcoming automation workflows.",
       is_mock: true,
       claimed_actions_executed: false,
+      intent: "general_dialogue",
+      routed_agent: "personal_agent",
+      steps: [
+        "Intent Classification -> 'general_dialogue'",
+        "Graph Router -> Assigned to Agent 'Aura' (personal_agent)",
+        "Safety Guard -> Read-only / Non-consequential query (Autonomous execution permitted)",
+        "Synthesis -> Completed via Provider 'mock'",
+      ],
     },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [expandedTraceIdx, setExpandedTraceIdx] = useState<number | null>(0);
 
   const sendMessage = async (textToSend?: string) => {
     const messageText = textToSend || input;
@@ -52,6 +66,7 @@ export default function ChatPage() {
 
       const data = await res.json();
       setConversationId(data.conversation_id);
+      const newIdx = messages.length + 1;
       setMessages((prev) => [
         ...prev,
         {
@@ -59,8 +74,14 @@ export default function ChatPage() {
           content: data.response,
           is_mock: data.is_mock,
           claimed_actions_executed: data.claimed_actions_executed,
+          intent: data.intent,
+          routed_agent: data.routed_agent,
+          steps: data.steps,
+          requires_approval: data.requires_approval,
+          approval_id: data.approval_id,
         },
       ]);
+      setExpandedTraceIdx(newIdx);
     } catch (err: any) {
       setMessages((prev) => [
         ...prev,
@@ -77,16 +98,16 @@ export default function ChatPage() {
 
   const samplePrompts = [
     "Check system status",
-    "Who are you and what are your agents?",
-    "Show my current tasks",
-    "Explain NEXUS architecture",
+    "Can you check git commit and fix a bug in the code?",
+    "Please research the web for latest AI papers",
+    "Please delete old files in storage directory",
   ];
 
   return (
     <div className="flex-1 flex flex-col bg-nexus-950 h-screen">
       <Header
-        title="Conversational Assistant"
-        subtitle="Natural interaction layer backed by deterministic foundation engine"
+        title="Conversational Assistant & Orchestration Graph"
+        subtitle="Multi-agent state graph routing with human approval intercept"
       />
 
       {/* Main Chat Stream */}
@@ -105,26 +126,68 @@ export default function ChatPage() {
             )}
 
             <div
-              className={`max-w-2xl rounded-xl p-4 text-xs leading-relaxed space-y-2 ${
+              className={`max-w-2xl rounded-xl p-4 text-xs leading-relaxed space-y-2.5 ${
                 msg.role === "user"
                   ? "bg-cyan-600 text-white rounded-br-none shadow-md"
                   : "bg-nexus-900 border border-nexus-700 text-nexus-200 rounded-bl-none shadow-md"
               }`}
             >
               {msg.role === "assistant" && (
-                <div className="flex items-center gap-2 pb-1 border-b border-nexus-800 text-[10px] text-nexus-400 font-mono">
-                  <Sparkles className="w-3 h-3 text-cyan-400" />
-                  <span>AI Engine (Deterministic Mock)</span>
-                  <span className="text-emerald-400 font-bold">• Verified Safe</span>
+                <div className="flex items-center justify-between pb-1 border-b border-nexus-800 text-[10px] text-nexus-400 font-mono">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="w-3 h-3 text-cyan-400" />
+                    <span>Agent: <strong className="text-nexus-200">{msg.routed_agent || "personal_agent"}</strong></span>
+                  </div>
+                  {msg.requires_approval ? (
+                    <span className="text-amber-400 font-bold bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-900">
+                      Approval #{msg.approval_id} Queued
+                    </span>
+                  ) : (
+                    <span className="text-emerald-400 font-bold">• Safe Read-Only</span>
+                  )}
+                </div>
+              )}
+
+              {/* Expandable State Graph Trace */}
+              {msg.role === "assistant" && msg.steps && msg.steps.length > 0 && (
+                <div className="bg-nexus-950/80 border border-nexus-800 rounded-lg p-2.5">
+                  <button
+                    onClick={() => setExpandedTraceIdx(expandedTraceIdx === idx ? null : idx)}
+                    className="flex items-center justify-between w-full text-[10px] font-mono text-cyan-400 hover:text-cyan-300"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <GitFork className="w-3 h-3 text-indigo-400" />
+                      State Graph Execution Trace ({msg.steps.length} Nodes)
+                    </span>
+                    {expandedTraceIdx === idx ? (
+                      <ChevronDown className="w-3 h-3" />
+                    ) : (
+                      <ChevronRight className="w-3 h-3" />
+                    )}
+                  </button>
+
+                  {expandedTraceIdx === idx && (
+                    <div className="mt-2 pt-2 border-t border-nexus-850 space-y-1 font-mono text-[10px] text-nexus-400">
+                      {msg.steps.map((step, sIdx) => (
+                        <div key={sIdx} className="flex items-start gap-1.5">
+                          <span className="text-indigo-400 shrink-0">&rarr;</span>
+                          <span className="text-nexus-300">{step}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
               <p className="whitespace-pre-line font-mono text-[11px]">{msg.content}</p>
 
               {msg.role === "assistant" && (
-                <div className="pt-2 flex items-center gap-2 text-[10px] text-nexus-500 font-mono">
-                  <ShieldAlert className="w-3 h-3 text-emerald-400" />
-                  <span>External Side-Effects: None (Read-Only)</span>
+                <div className="pt-1 flex items-center justify-between text-[10px] text-nexus-500 font-mono">
+                  <span className="flex items-center gap-1">
+                    <ShieldAlert className="w-3 h-3 text-emerald-400" />
+                    Side-Effects: None
+                  </span>
+                  <span>Intent: {msg.intent || "general"}</span>
                 </div>
               )}
             </div>
@@ -144,7 +207,7 @@ export default function ChatPage() {
             </div>
             <div className="bg-nexus-900 border border-nexus-700 rounded-xl p-4 text-xs text-nexus-400 font-mono flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-              Processing prompt through mock engine...
+              Routing prompt through agent state graph...
             </div>
           </div>
         )}
@@ -153,7 +216,7 @@ export default function ChatPage() {
       {/* Suggested Quick Prompts */}
       <div className="p-3 border-t border-nexus-800/80 bg-nexus-900/50 max-w-4xl mx-auto w-full">
         <div className="flex items-center gap-2 overflow-x-auto pb-1 text-[11px]">
-          <span className="text-nexus-500 font-mono shrink-0">Suggestions:</span>
+          <span className="text-nexus-500 font-mono shrink-0">Sample Prompts:</span>
           {samplePrompts.map((p, i) => (
             <button
               key={i}
@@ -179,7 +242,7 @@ export default function ChatPage() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Type a message or instruction for NEXUS AI..."
+            placeholder="Type a request (e.g. 'Can you check git code?', 'Delete files', 'Research AI papers')..."
             className="flex-1 bg-nexus-950 border border-nexus-700 rounded-xl px-4 py-2.5 text-xs text-nexus-100 placeholder-nexus-500 focus:outline-none focus:border-cyan-500 transition-colors"
           />
           <button

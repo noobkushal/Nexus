@@ -32,4 +32,9 @@ class ChatResponse(BaseModel):
         description="Strict safety flag: indicates whether consequential external actions were executed",
     )
     timestamp: datetime = Field(default_factory=utc_now)
+    intent: Optional[str] = Field(None, description="Classified intent from agent state graph")
+    routed_agent: Optional[str] = Field(None, description="Target agent routed by graph")
+    requires_approval: bool = Field(False, description="True if action was gated for human approval")
+    approval_id: Optional[str] = Field(None, description="ID of generated approval request")
+    steps: List[str] = Field(default_factory=list, description="Execution step trace through state graph")
     metadata: Dict[str, Any] = Field(default_factory=dict)
