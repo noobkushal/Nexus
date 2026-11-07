@@ -25,6 +25,9 @@
 - [x] Live Git safety checkpointing before consequential filesystem edits (`GitService`).
 - [x] Outbound communication workflows (`CommunicationService`) with mandatory human approval before transmission.
 - [x] Executive Daily Briefings & Reminders engine (`BriefingService`), persisting reports in `storage/generated/`.
+- [x] Application & website scaffolding tool for Forge (`ApplicationScaffolder`) with automatic Git checkpointing.
+- [x] Career intelligence, job discovery, and CV tailoring engine (`CareerService`).
+- [x] Skills and Integrations registry with least-privilege permission validation (`SkillsRegistry`).
 
 ## Phase 3: Future Hardware Scaling & Cloud Extensions (Planned)
 - [ ] Direct Playwright headless browser session recording.

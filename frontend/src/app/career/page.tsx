@@ -15,7 +15,12 @@ import {
   Plus,
   Clock,
   ShieldAlert,
+  Sparkles,
+  Copy,
+  Check,
   X,
+  Eye,
+  RefreshCw,
 } from "lucide-react";
 
 interface EmailDraft {
@@ -40,12 +45,40 @@ interface MessageDraft {
   created_at: string;
 }
 
+interface JobOpportunity {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  skills_required: string[];
+  description: string;
+  match_score: number;
+  status: string;
+}
+
+interface ResumeData {
+  id: string;
+  target_role: string;
+  target_company: string;
+  match_score: number;
+  tailored_summary: string;
+  matched_skills: string[];
+  relative_path: string;
+  content: string;
+}
+
 export default function CareerPage() {
-  const [activeTab, setActiveTab] = useState<"emails" | "outreach">("emails");
+  const [activeTab, setActiveTab] = useState<"jobs" | "emails" | "outreach">("jobs");
   const [emails, setEmails] = useState<EmailDraft[]>([]);
   const [messages, setMessages] = useState<MessageDraft[]>([]);
+  const [jobs, setJobs] = useState<JobOpportunity[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  // Resume Modal & Generation State
+  const [tailoringJobId, setTailoringJobId] = useState<string | null>(null);
+  const [activeResume, setActiveResume] = useState<ResumeData | null>(null);
+  const [copiedResume, setCopiedResume] = useState(false);
 
   // New Draft Modal
   const [showDraftModal, setShowDraftModal] = useState(false);
@@ -56,14 +89,16 @@ export default function CareerPage() {
 
   const loadData = async () => {
     try {
-      const [eRes, mRes] = await Promise.all([
+      const [eRes, mRes, jRes] = await Promise.all([
         fetch("http://127.0.0.1:8000/api/v1/communications/emails"),
         fetch("http://127.0.0.1:8000/api/v1/communications/messages"),
+        fetch("http://127.0.0.1:8000/api/v1/career/jobs"),
       ]);
       if (eRes.ok) setEmails(await eRes.json());
       if (mRes.ok) setMessages(await mRes.json());
+      if (jRes.ok) setJobs(await jRes.json());
     } catch (err) {
-      console.error("Failed to load communications", err);
+      console.error("Failed to load communications and career data", err);
     } finally {
       setLoading(false);
     }
@@ -72,6 +107,40 @@ export default function CareerPage() {
   useEffect(() => {
     loadData();
   }, []);
+
+  const handleTailorResume = async (job: JobOpportunity) => {
+    setTailoringJobId(job.id);
+    try {
+      const res = await fetch("http://127.0.0.1:8000/api/v1/career/tailor-resume", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          job_id: job.id,
+          target_role: job.title,
+          target_company: job.company,
+          job_description: job.description,
+          focus_skills: job.skills_required,
+        }),
+      });
+      if (res.ok) {
+        const resume: ResumeData = await res.json();
+        setActiveResume(resume);
+        setActionMessage(`Resume customized for ${job.company} (${Math.round(resume.match_score * 100)}% match)`);
+        loadData();
+      }
+    } catch (err) {
+      console.error("Failed to tailor resume", err);
+    } finally {
+      setTailoringJobId(null);
+    }
+  };
+
+  const handleCopyResume = () => {
+    if (!activeResume) return;
+    navigator.clipboard.writeText(activeResume.content);
+    setCopiedResume(true);
+    setTimeout(() => setCopiedResume(false), 2000);
+  };
 
   const handleRequestEmailApproval = async (id: string) => {
     try {
@@ -131,8 +200,8 @@ export default function CareerPage() {
   return (
     <div className="flex-1 flex flex-col bg-nexus-950">
       <Header
-        title="Communications, Career & Outreach Engine"
-        subtitle="Mandatory human approval barrier for outbound emails and professional networking"
+        title="Career Intelligence, Job Discovery & Outreach Engine"
+        subtitle="Autonomous opportunity matching, CV tailoring, and human-verified outreach"
       />
 
       <main className="p-8 max-w-6xl mx-auto w-full space-y-6">
@@ -148,7 +217,7 @@ export default function CareerPage() {
                 </span>
               </div>
               <p className="text-xs text-nexus-400">
-                Agents are prohibited from transmitting outbound emails or messages autonomously.
+                Agent &quot;Apex&quot; is prohibited from transmitting outbound outreach autonomously.
                 Every communication must be approved in Mission Control before dispatch.
               </p>
             </div>
@@ -173,6 +242,17 @@ export default function CareerPage() {
         {/* Tab Controls */}
         <div className="flex items-center gap-3 border-b border-nexus-800 pb-2">
           <button
+            onClick={() => setActiveTab("jobs")}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              activeTab === "jobs"
+                ? "bg-nexus-800 text-cyan-400 border border-nexus-700"
+                : "text-nexus-400 hover:text-nexus-200"
+            }`}
+          >
+            <Briefcase className="w-3.5 h-3.5" />
+            <span>Discovered Opportunities ({jobs.length})</span>
+          </button>
+          <button
             onClick={() => setActiveTab("emails")}
             className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
               activeTab === "emails"
@@ -196,8 +276,56 @@ export default function CareerPage() {
           </button>
         </div>
 
-        {/* Content View */}
-        {activeTab === "emails" ? (
+        {/* Jobs Tab Content */}
+        {activeTab === "jobs" && (
+          <div className="space-y-4">
+            {jobs.map((job) => (
+              <div
+                key={job.id}
+                className="bg-nexus-900 border border-nexus-700 rounded-xl p-5 space-y-3"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2.5">
+                      <h3 className="text-sm font-semibold text-nexus-100">{job.title}</h3>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">
+                        {Math.round(job.match_score * 100)}% MATCH
+                      </span>
+                    </div>
+                    <p className="text-xs text-nexus-400 font-mono mt-0.5">
+                      {job.company} &bull; <span className="text-nexus-300">{job.location}</span>
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleTailorResume(job)}
+                    disabled={tailoringJobId === job.id}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-colors shadow-md shadow-indigo-900/30 disabled:opacity-50"
+                  >
+                    <Sparkles className={`w-3.5 h-3.5 ${tailoringJobId === job.id ? "animate-spin" : ""}`} />
+                    <span>{tailoringJobId === job.id ? "Tailoring CV..." : "Tailor Resume"}</span>
+                  </button>
+                </div>
+
+                <p className="text-xs text-nexus-300 leading-relaxed">{job.description}</p>
+
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-[10px] font-mono text-nexus-500 mr-1">Skills:</span>
+                  {job.skills_required.map((skill, idx) => (
+                    <span
+                      key={idx}
+                      className="text-[10px] font-mono px-2 py-0.5 rounded bg-nexus-850 text-cyan-300 border border-nexus-750"
+                    >
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Emails Tab Content */}
+        {activeTab === "emails" && (
           <div className="space-y-4">
             {emails.map((em) => (
               <div
@@ -272,7 +400,10 @@ export default function CareerPage() {
               </div>
             ))}
           </div>
-        ) : (
+        )}
+
+        {/* Outreach Tab Content */}
+        {activeTab === "outreach" && (
           <div className="space-y-4">
             {messages.map((msg) => (
               <div
@@ -316,6 +447,56 @@ export default function CareerPage() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Tailored Resume Inspection Modal */}
+        {activeResume && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-nexus-900 border border-nexus-700 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+              <div className="p-4 border-b border-nexus-700 flex items-center justify-between bg-nexus-950/60">
+                <div className="flex items-center gap-2.5">
+                  <FileText className="w-4 h-4 text-indigo-400" />
+                  <span className="text-sm font-semibold text-nexus-100">
+                    Tailored CV: {activeResume.target_role} @ {activeResume.target_company}
+                  </span>
+                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800">
+                    {Math.round(activeResume.match_score * 100)}% Match
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleCopyResume}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-nexus-800 hover:bg-nexus-750 border border-nexus-700 text-xs text-nexus-200 transition-colors"
+                  >
+                    {copiedResume ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-emerald-400">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy Markdown</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setActiveResume(null)}
+                    className="p-1 rounded-lg hover:bg-nexus-800 text-nexus-400 hover:text-nexus-200 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="p-6 overflow-y-auto flex-1 font-mono text-xs text-nexus-200 bg-nexus-950/40 whitespace-pre-wrap leading-relaxed">
+                {activeResume.content}
+              </div>
+              <div className="p-3 border-t border-nexus-800 bg-nexus-950/80 text-[11px] text-nexus-500 flex justify-between">
+                <span>Quarantined in storage/{activeResume.relative_path}</span>
+                <span>Generated via NEXUS Apex Agent</span>
+              </div>
+            </div>
           </div>
         )}
 

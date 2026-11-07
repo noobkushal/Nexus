@@ -221,3 +221,32 @@ Compiles an on-demand Markdown briefing containing diagnostics, pending approval
 
 ### `GET /api/v1/briefings/reminders`
 Synthesizes actionable high-priority reminders across tasks, approvals, and communications.
+
+---
+
+## 12. Career Intelligence & Resume Tailoring
+
+### `GET /api/v1/career/jobs`
+Lists discovered job opportunities, matching candidate profile keywords, and computing alignment scores. Query parameter: `status`.
+
+### `GET /api/v1/career/jobs/{job_id}`
+Retrieves full details of a specific job opportunity.
+
+### `POST /api/v1/career/tailor-resume`
+Generates a customized, quarantined CV markdown variant aligning candidate experience with target job specifications. Saves to `storage/generated/tailored_resume_<company>_<timestamp>.md`.
+
+### `GET /api/v1/career/resumes`
+Lists all previously generated tailored resumes in the sandboxed storage compartment.
+
+---
+
+## 13. Skills & Integrations Registry
+
+### `GET /api/v1/skills`
+Lists all registered skills, required permissions, consequential safety markers, and authorized agents.
+
+### `GET /api/v1/skills/{skill_id}`
+Retrieves detailed specifications for a specific skill.
+
+### `POST /api/v1/skills/invoke`
+Invokes a skill with strict least-privilege permission validation. Throws status `permission_denied` if the invoking agent lacks declared authorization in its permissions matrix.
