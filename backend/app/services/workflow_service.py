@@ -1,11 +1,15 @@
 """Workflow and Automation Service Interface (n8n Bridge)."""
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 from app.core.config import settings
 from app.core.logging import logger
+
+
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class WorkflowStatus(str, Enum):
@@ -28,14 +32,14 @@ class WorkflowDefinition(BaseModel):
     trigger_type: str = "webhook"  # webhook, cron, event
     webhook_path: Optional[str] = None
     status: WorkflowStatus = WorkflowStatus.ACTIVE
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
 
 class WorkflowExecution(BaseModel):
     execution_id: str
     workflow_id: str
     status: ExecutionStatus
-    triggered_at: datetime = Field(default_factory=datetime.utcnow)
+    triggered_at: datetime = Field(default_factory=utc_now)
     completed_at: Optional[datetime] = None
     payload: Dict[str, Any] = Field(default_factory=dict)
     result: Optional[Dict[str, Any]] = None
@@ -99,7 +103,7 @@ class WorkflowService:
             execution_id=exec_id,
             workflow_id=workflow_id,
             status=ExecutionStatus.SUCCESS,
-            completed_at=datetime.utcnow(),
+            completed_at=utc_now(),
             payload=payload or {},
             result={
                 "message": f"Simulated workflow execution for '{wf.name}' completed.",
