@@ -12,7 +12,33 @@ This guide provides step-by-step Windows PowerShell instructions to set up, run,
 
 ---
 
-## 1. Backend Setup & Startup
+## 1. Quick Launch Scripts (One-Click Helpers)
+
+Pre-built PowerShell scripts are available in `scripts/`:
+
+### Full System Verification (Backend Pytest + Next.js Production Build)
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\verify-all.ps1
+```
+
+### Launch FastAPI Backend
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\start-backend.ps1
+```
+
+### Launch Next.js Frontend
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\start-frontend.ps1
+```
+
+### Run Automated Tests
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run-tests.ps1
+```
+
+---
+
+## 2. Manual Backend Setup & Startup
 
 ### Step 1.1: Navigate to Backend Directory
 Open Windows PowerShell and navigate to the backend folder:
