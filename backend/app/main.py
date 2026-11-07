@@ -18,6 +18,7 @@ from app.api.tasks import router as tasks_router
 from app.api.workflows import router as workflows_router
 from app.core.config import settings
 from app.core.logging import logger
+from app.db import init_db
 from app.providers.registry import provider_registry
 
 
@@ -31,6 +32,8 @@ async def lifespan(app: FastAPI):
     logger.info("Storage Directory: %s", settings.STORAGE_DIR)
     logger.info("All external dependencies (Ollama, PostgreSQL, n8n) are OPTIONAL.")
     logger.info("==================================================")
+    # Initialize database tables (SQLite fallback or PostgreSQL)
+    init_db()
     yield
     logger.info(f"Shutting down {settings.PROJECT_NAME} cleanly.")
 

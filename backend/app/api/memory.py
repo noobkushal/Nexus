@@ -1,8 +1,9 @@
 """Memory and Profile API Endpoints."""
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 from app.memory.manager import MemoryItem, memory_manager
+from app.services.memory_consolidation import memory_consolidator
 
 router = APIRouter(prefix="/api/v1/memory", tags=["Memory"])
 
@@ -12,6 +13,11 @@ class MemoryCreateRequest(BaseModel):
     key: str = Field(..., max_length=100)
     content: str = Field(..., max_length=5000)
     importance: int = Field(1, ge=1, le=5)
+
+
+class MemoryConsolidateRequest(BaseModel):
+    conversation_id: str
+    messages: List[Dict[str, str]]
 
 
 @router.get("", response_model=List[MemoryItem])
@@ -30,4 +36,13 @@ async def store_memory(req: MemoryCreateRequest) -> MemoryItem:
         key=req.key,
         content=req.content,
         importance=req.importance,
+    )
+
+
+@router.post("/consolidate", response_model=Dict[str, Any])
+async def consolidate_memory(req: MemoryConsolidateRequest) -> Dict[str, Any]:
+    """Extracts persistent directives and preferences from conversation turns."""
+    return memory_consolidator.extract_and_consolidate(
+        conversation_id=req.conversation_id,
+        messages=req.messages,
     )
