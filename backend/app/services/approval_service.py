@@ -111,17 +111,16 @@ class ApprovalService:
             raise ValueError("A decision must be approved or rejected.")
         now = utc_now()
 
-        # Expire first, then perform a conditional update. The WHERE clause makes
-        # simultaneous approvals/replays race-safe across workers and DB connections.
+        # The API restricts this operation to owners. Do not scope the request
+        # to the reviewer's user id: an owner must be able to review an
+        # operator/agent request created by a different account.
         db.query(ApprovalModel).filter(
             ApprovalModel.id == approval_id,
-            ApprovalModel.requester_user_id == reviewer_user_id,
             ApprovalModel.status == ApprovalStatus.PENDING.value,
             ApprovalModel.expires_at <= now,
         ).update({"status": ApprovalStatus.EXPIRED.value}, synchronize_session=False)
         changed = db.query(ApprovalModel).filter(
             ApprovalModel.id == approval_id,
-            ApprovalModel.requester_user_id == reviewer_user_id,
             ApprovalModel.status == ApprovalStatus.PENDING.value,
             ApprovalModel.expires_at > now,
             ApprovalModel.payload_hash == decision.payload_hash,
@@ -132,7 +131,7 @@ class ApprovalService:
             "reviewer_notes": decision.reviewer_notes,
         }, synchronize_session=False)
 
-        row = db.query(ApprovalModel).filter(ApprovalModel.id == approval_id, ApprovalModel.requester_user_id == reviewer_user_id).first()
+        row = db.query(ApprovalModel).filter(ApprovalModel.id == approval_id).first()
         if not row:
             db.rollback()
             return None
