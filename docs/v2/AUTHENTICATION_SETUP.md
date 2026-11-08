@@ -37,13 +37,13 @@ The response contains a short-lived bearer access token. Store it only in a secu
 
 ## 4. Login and use protected APIs
 
-- `POST /api/v1/auth/login` accepts username/password and returns a short-lived bearer token.
+- `POST /api/v1/auth/login` accepts username/password and returns a short-lived bearer token while also setting an HttpOnly browser cookie.
 - `GET /api/v1/auth/me` returns the authenticated user's public profile.
-- `POST /api/v1/auth/logout` increments the user's token version and immediately invalidates previously issued tokens.
+- `POST /api/v1/auth/logout` increments the user's token version, clears the HttpOnly cookie, and immediately invalidates previously issued tokens.
 - Product API routes require `Authorization: Bearer <access_token>`.
 - `/health`, `/`, bootstrap, and login remain public. Settings changes and approval decisions are owner-only.
 
-Do not store access tokens in browser localStorage. The frontend login/session integration is a separate delivery slice; until it is implemented, unauthenticated frontend API calls will receive HTTP 401.
+Do not store access tokens in browser localStorage. The Next.js dashboard now includes an owner sign-in page at `/login`, a route guard, credentialed API requests, and a sign-out control. The browser uses a short-lived HttpOnly cookie rather than storing the bearer token in localStorage or sessionStorage.
 
 ## Approval API behavior
 
