@@ -61,24 +61,25 @@ def _response(row: ApprovalModel) -> ApprovalResponse:
 class ApprovalService:
     """Persists approval proposals and enforces one-time human decisions."""
 
-    def list_approvals(self, db: Session, status: Optional[ApprovalStatus] = None) -> List[ApprovalResponse]:
+    def list_approvals(self, db: Session, requester_user_id: str, status: Optional[ApprovalStatus] = None) -> List[ApprovalResponse]:
         now = utc_now()
         db.query(ApprovalModel).filter(
+            ApprovalModel.requester_user_id == requester_user_id,
             ApprovalModel.status == ApprovalStatus.PENDING.value,
             ApprovalModel.expires_at <= now,
         ).update({"status": ApprovalStatus.EXPIRED.value}, synchronize_session=False)
         db.commit()
-        query = db.query(ApprovalModel)
+        query = db.query(ApprovalModel).filter(ApprovalModel.requester_user_id == requester_user_id)
         if status:
             query = query.filter(ApprovalModel.status == status.value)
         return [_response(row) for row in query.order_by(ApprovalModel.requested_at.desc()).all()]
 
-    def get_approval(self, approval_id: str, db: Session) -> Optional[ApprovalResponse]:
-        row = db.query(ApprovalModel).filter(ApprovalModel.id == approval_id).first()
+    def get_approval(self, approval_id: str, requester_user_id: str, db: Session) -> Optional[ApprovalResponse]:
+        row = db.query(ApprovalModel).filter(ApprovalModel.id == approval_id, ApprovalModel.requester_user_id == requester_user_id).first()
         if not row:
             return None
-        if row.status == ApprovalStatus.PENDING.value and row.expires_at <= utc_now():
-            row.status = ApprovalStatus.EXPIRED.value
+        if row.status == ApprovalStatus.PENDING.value:
+            db.query(ApprovalModel).filter(ApprovalModel.id == approval_id, ApprovalModel.requester_user_id == requester_user_id, ApprovalModel.status == ApprovalStatus.PENDING.value, ApprovalModel.expires_at <= utc_now()).update({"status": ApprovalStatus.EXPIRED.value}, synchronize_session=False)
             db.commit()
             db.refresh(row)
         return _response(row)
@@ -114,11 +115,13 @@ class ApprovalService:
         # simultaneous approvals/replays race-safe across workers and DB connections.
         db.query(ApprovalModel).filter(
             ApprovalModel.id == approval_id,
+            ApprovalModel.requester_user_id == reviewer_user_id,
             ApprovalModel.status == ApprovalStatus.PENDING.value,
             ApprovalModel.expires_at <= now,
         ).update({"status": ApprovalStatus.EXPIRED.value}, synchronize_session=False)
         changed = db.query(ApprovalModel).filter(
             ApprovalModel.id == approval_id,
+            ApprovalModel.requester_user_id == reviewer_user_id,
             ApprovalModel.status == ApprovalStatus.PENDING.value,
             ApprovalModel.expires_at > now,
             ApprovalModel.payload_hash == decision.payload_hash,
@@ -129,7 +132,7 @@ class ApprovalService:
             "reviewer_notes": decision.reviewer_notes,
         }, synchronize_session=False)
 
-        row = db.query(ApprovalModel).filter(ApprovalModel.id == approval_id).first()
+        row = db.query(ApprovalModel).filter(ApprovalModel.id == approval_id, ApprovalModel.requester_user_id == reviewer_user_id).first()
         if not row:
             db.rollback()
             return None
