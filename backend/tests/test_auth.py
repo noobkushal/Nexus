@@ -94,11 +94,15 @@ def test_bootstrap_login_and_logout_revoke_session(monkeypatch):
     monkeypatch.setattr(settings, "AUTH_SECRET_KEY", "s" * 48)
     monkeypatch.setattr(settings, "AUTH_BOOTSTRAP_SECRET", "b" * 32)
 
-    created = bootstrap_owner(BootstrapRequest(username="owner", password="a sufficiently long password"), Response(), "b" * 32, db)
+    bootstrap_response = Response()
+    created = bootstrap_owner(BootstrapRequest(username="owner", password="a sufficiently long password"), bootstrap_response, "b" * 32, db)
+    assert "nexus_access_token" in bootstrap_response.headers.get("set-cookie", "")
     assert created["user"]["role"] == "owner"
     assert "password_hash" not in created["user"]
 
-    signed_in = login(LoginRequest(username="owner", password="a sufficiently long password"), Response(), db)
+    login_response = Response()
+    signed_in = login(LoginRequest(username="owner", password="a sufficiently long password"), login_response, db)
+    assert "nexus_access_token" in login_response.headers.get("set-cookie", "")
     assert signed_in["access_token"]
     active_user = get_current_user("Bearer " + signed_in["access_token"], db)
     assert active_user.username == "owner"
@@ -131,3 +135,37 @@ def test_bootstrap_rejects_wrong_secret(monkeypatch):
     assert db.query(__import__("app.db.models", fromlist=["UserModel"]).UserModel).count() == 0
     db.close()
     engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_protected_api_rejects_missing_session():
+    from httpx import ASGITransport, AsyncClient
+    from app.main import app
+    from app.core.auth import get_current_user
+
+    override = app.dependency_overrides.pop(get_current_user, None)
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.get("/api/v1/agents")
+        assert response.status_code == 401
+    finally:
+        if override is not None:
+            app.dependency_overrides[get_current_user] = override
+
+
+@pytest.mark.asyncio
+async def test_system_settings_are_owner_only():
+    from httpx import ASGITransport, AsyncClient
+    from types import SimpleNamespace
+    from app.main import app
+    from app.core.auth import get_current_user
+
+    original = app.dependency_overrides.get(get_current_user)
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(id="auditor-id", role="auditor")
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.get("/api/v1/settings")
+        assert response.status_code == 403
+    finally:
+        if original is not None:
+            app.dependency_overrides[get_current_user] = original
