@@ -86,3 +86,20 @@ def test_expired_approval_cannot_be_approved(approval_db):
         service.decide_approval(created.id, decision, owner_id, db)
     current = service.get_approval(created.id, owner_id, db)
     assert current.status == ApprovalStatus.EXPIRED
+
+
+def test_approved_request_can_be_consumed_only_once(approval_db):
+    db, _, owner_id = approval_db
+    service = ApprovalService()
+    created = service.request_approval(make_request(), owner_id, db)
+    approved = service.decide_approval(
+        created.id,
+        ApprovalDecision(decision=ApprovalStatus.APPROVED, payload_hash=created.payload_hash),
+        owner_id,
+        db,
+    )
+    assert approved.status == ApprovalStatus.APPROVED
+    consumed = service.consume_approval(created.id, created.payload_hash, owner_id, db)
+    assert consumed.status == ApprovalStatus.CONSUMED
+    assert consumed.consumed_at is not None
+    assert service.consume_approval(created.id, created.payload_hash, owner_id, db) is None
