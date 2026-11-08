@@ -72,8 +72,13 @@ def test_conversation_and_messages_relationship(db_session):
 def test_task_model_persistence(db_session):
     """Verify task model creation and lifecycle states."""
     tid = f"task-{uuid.uuid4().hex[:6]}"
+    uid = f"owner-{uuid.uuid4().hex[:6]}"
+    owner = UserModel(id=uid, username=f"owner_{uid}", role="owner")
+    db_session.add(owner)
+    db_session.commit()
     task = TaskModel(
         id=tid,
+        owner_id=uid,
         title="Deploy PostgreSQL with pgvector",
         description="Verify Docker compose container",
         status="pending",
