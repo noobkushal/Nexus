@@ -1,8 +1,10 @@
-"""Workflow and Automation Service Interface (n8n Bridge)."""
+"""Real n8n webhook dispatch with honest execution outcomes."""
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlsplit
+import httpx
 from pydantic import BaseModel, Field
 from app.core.config import settings
 from app.core.logging import logger
@@ -29,7 +31,7 @@ class WorkflowDefinition(BaseModel):
     id: str
     name: str
     description: str
-    trigger_type: str = "webhook"  # webhook, cron, event
+    trigger_type: str = "webhook"
     webhook_path: Optional[str] = None
     status: WorkflowStatus = WorkflowStatus.ACTIVE
     created_at: datetime = Field(default_factory=utc_now)
@@ -46,7 +48,7 @@ class WorkflowExecution(BaseModel):
 
 
 class WorkflowService:
-    """Manages workflow catalog and simulated execution tracking without requiring n8n."""
+    """Dispatches registered workflows to a configured n8n webhook; never simulates success."""
 
     def __init__(self):
         self._workflows: Dict[str, WorkflowDefinition] = {}
@@ -55,37 +57,12 @@ class WorkflowService:
 
     def _seed_workflows(self):
         seeds = [
-            (
-                "daily_briefing",
-                "Morning Intelligence Briefing",
-                "Gathers calendar items, priority tasks, and news summary at 08:00 AM.",
-                "cron",
-                "/webhook/daily-briefing",
-            ),
-            (
-                "email_inbox_triage",
-                "Smart Email Triage & Drafts",
-                "Labels incoming emails, flags priority senders, and pre-drafts replies for approval.",
-                "webhook",
-                "/webhook/email-triage",
-            ),
-            (
-                "code_checkpoint_sync",
-                "Project Git Safety Sync",
-                "Automates local branch snapshots before consequential agent code edits.",
-                "event",
-                "/webhook/git-snapshot",
-            ),
+            ("daily_briefing", "Morning Intelligence Briefing", "Gathers calendar items, priority tasks, and news summary.", "cron", "/webhook/daily-briefing"),
+            ("email_inbox_triage", "Smart Email Triage & Drafts", "Labels incoming emails and prepares reply drafts for review.", "webhook", "/webhook/email-triage"),
+            ("code_checkpoint_sync", "Project Git Safety Sync", "Triggers registered Git checkpoint automation.", "event", "/webhook/git-snapshot"),
         ]
-        for wid, name, desc, ttype, wpath in seeds:
-            self._workflows[wid] = WorkflowDefinition(
-                id=wid,
-                name=name,
-                description=desc,
-                trigger_type=ttype,
-                webhook_path=wpath,
-                status=WorkflowStatus.ACTIVE,
-            )
+        for wid, name, desc, trigger, path in seeds:
+            self._workflows[wid] = WorkflowDefinition(id=wid, name=name, description=desc, trigger_type=trigger, webhook_path=path)
 
     def list_workflows(self) -> List[WorkflowDefinition]:
         return list(self._workflows.values())
@@ -93,30 +70,56 @@ class WorkflowService:
     def get_workflow(self, workflow_id: str) -> Optional[WorkflowDefinition]:
         return self._workflows.get(workflow_id)
 
-    async def trigger_workflow(self, workflow_id: str, payload: Optional[Dict[str, Any]] = None) -> WorkflowExecution:
-        wf = self.get_workflow(workflow_id)
-        if not wf:
-            raise ValueError(f"Workflow '{workflow_id}' does not exist.")
-
-        exec_id = str(uuid.uuid4())[:8]
-        execution = WorkflowExecution(
-            execution_id=exec_id,
-            workflow_id=workflow_id,
-            status=ExecutionStatus.SUCCESS,
-            completed_at=utc_now(),
-            payload=payload or {},
-            result={
-                "message": f"Simulated workflow execution for '{wf.name}' completed.",
-                "note": "Running in offline mode; n8n webhook invocation was simulated.",
-                "target_webhook": f"{settings.N8N_WEBHOOK_URL or 'http://127.0.0.1:5678'}{wf.webhook_path}",
-            },
-        )
-        self._executions.append(execution)
-        logger.info(f"Triggered workflow '{workflow_id}' -> Execution: {exec_id}")
-        return execution
-
     def list_executions(self, limit: int = 15) -> List[WorkflowExecution]:
         return sorted(self._executions, key=lambda e: e.triggered_at, reverse=True)[:limit]
+
+    async def trigger_workflow(self, workflow_id: str, payload: Optional[Dict[str, Any]] = None) -> WorkflowExecution:
+        workflow = self.get_workflow(workflow_id)
+        if not workflow:
+            raise ValueError(f"Workflow '{workflow_id}' does not exist.")
+        if workflow.status != WorkflowStatus.ACTIVE:
+            raise ValueError(f"Workflow '{workflow_id}' is not active.")
+        base = settings.N8N_WEBHOOK_URL
+        if not base:
+            raise RuntimeError("n8n is not configured. Set N8N_WEBHOOK_URL before triggering workflows.")
+        parsed = urlsplit(base)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.password:
+            raise RuntimeError("N8N_WEBHOOK_URL must be an absolute HTTP(S) URL without embedded credentials.")
+        if parsed.scheme != "https" and parsed.hostname not in ("localhost", "127.0.0.1", "::1"):
+            raise RuntimeError("Remote n8n endpoints must use HTTPS.")
+
+        execution = WorkflowExecution(
+            execution_id=str(uuid.uuid4()), workflow_id=workflow_id,
+            status=ExecutionStatus.RUNNING, payload=payload or {},
+        )
+        self._executions.append(execution)
+        target = base.rstrip("/") + (workflow.webhook_path or "")
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(20.0), follow_redirects=False) as client:
+                response = await client.post(target, json={
+                    "execution_id": execution.execution_id,
+                    "workflow_id": workflow_id,
+                    "triggered_at": execution.triggered_at.isoformat(),
+                    "payload": payload or {},
+                })
+                response.raise_for_status()
+            execution.status = ExecutionStatus.SUCCESS
+            execution.result = {
+                "message": f"n8n accepted workflow '{workflow.name}'.",
+                "http_status": response.status_code,
+                "target_webhook": target,
+            }
+        except httpx.HTTPError as exc:
+            execution.status = ExecutionStatus.FAILED
+            execution.result = {
+                "message": "n8n webhook dispatch failed; no successful execution is claimed.",
+                "error": type(exc).__name__,
+                "target_webhook": target,
+            }
+            logger.warning("Workflow dispatch failed for %s: %s", workflow_id, type(exc).__name__)
+        finally:
+            execution.completed_at = utc_now()
+        return execution
 
 
 workflow_service = WorkflowService()
