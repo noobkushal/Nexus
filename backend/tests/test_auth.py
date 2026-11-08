@@ -169,3 +169,22 @@ async def test_system_settings_are_owner_only():
     finally:
         if original is not None:
             app.dependency_overrides[get_current_user] = original
+
+
+@pytest.mark.asyncio
+async def test_non_owner_cannot_access_personal_api():
+    from httpx import ASGITransport, AsyncClient
+    from app.main import app
+    from app.core.auth import get_current_user
+
+    previous = app.dependency_overrides.get(get_current_user)
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(id="operator-1", role="operator")
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.get("/api/v1/agents")
+        assert response.status_code == 403
+    finally:
+        if previous is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = previous
