@@ -1,5 +1,6 @@
 """Owner bootstrap, login, session inspection, and logout endpoints."""
 import secrets
+import json
 import uuid
 import time
 from datetime import datetime, timezone
@@ -27,7 +28,7 @@ class LoginRequest(BaseModel):
     password: str = Field(..., min_length=1, max_length=256)
 
 def _audit_auth(db: Session, actor_id: str | None, event_type: str, details: dict):
-    db.add(AuditEventModel(id=str(uuid.uuid4()), actor_user_id=actor_id, event_type=event_type, resource_id=actor_id, details_json=__import__("json").dumps(details, sort_keys=True), created_at=datetime.now(timezone.utc)))
+    db.add(AuditEventModel(id=str(uuid.uuid4()), actor_user_id=actor_id, event_type=event_type, resource_id=actor_id, details_json=json.dumps(details, sort_keys=True), created_at=datetime.now(timezone.utc)))
 
 
 def _public_user(user: UserModel) -> dict:
