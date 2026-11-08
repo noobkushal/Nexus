@@ -68,7 +68,7 @@ def test_unapproved_email_dispatch_fails(comm_service, approval_context):
         comm_service.dispatch_email(email.id, owner_id, db)
 
 
-def test_email_approval_and_dispatch_lifecycle(comm_service, approval_context):
+def test_email_approval_does_not_fake_unconfigured_dispatch(comm_service, approval_context):
     db, owner_id = approval_context
     email = comm_service.create_email_draft(EmailDraftCreate(recipient="investor@fund.vc", subject="NEXUS AI Milestone 1 Demo", body="NEXUS AI foundation is live and fully verified."))
     email = comm_service.request_email_dispatch(email.id, owner_id, db)
@@ -93,7 +93,7 @@ def test_email_approval_and_dispatch_lifecycle(comm_service, approval_context):
     assert comm_service.get_email(email.id).status == CommunicationStatus.APPROVED
 
 
-def test_message_approval_and_dispatch(comm_service, approval_context):
+def test_message_approval_does_not_fake_unconfigured_dispatch(comm_service, approval_context):
     db, owner_id = approval_context
     msg = comm_service.create_message_draft(MessageDraftCreate(channel=CommunicationChannel.LINKEDIN, recipient="CTO Jane Doe", content="Excited about your work on edge computing!"))
     msg = comm_service.request_message_dispatch(msg.id, owner_id, db)
