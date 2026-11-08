@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { Workflow, Play, CheckCircle2, AlertCircle, RefreshCw, ExternalLink } from "lucide-react";
@@ -29,8 +31,8 @@ export default function WorkflowsPage() {
   const loadData = async () => {
     try {
       const [wRes, eRes] = await Promise.all([
-        fetch("http://127.0.0.1:8000/api/v1/workflows"),
-        fetch("http://127.0.0.1:8000/api/v1/workflows/executions"),
+        apiFetch("http://127.0.0.1:8000/api/v1/workflows"),
+        apiFetch("http://127.0.0.1:8000/api/v1/workflows/executions"),
       ]);
       if (wRes.ok) setWorkflows(await wRes.json());
       if (eRes.ok) setExecutions(await eRes.json());
@@ -46,7 +48,7 @@ export default function WorkflowsPage() {
   const triggerWorkflow = async (workflowId: string) => {
     try {
       setTriggering(workflowId);
-      const res = await fetch(`http://127.0.0.1:8000/api/v1/workflows/${workflowId}/trigger`, {
+      const res = await apiFetch(`http://127.0.0.1:8000/api/v1/workflows/${workflowId}/trigger`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ payload: { source: "frontend_dashboard" } }),
