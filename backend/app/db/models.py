@@ -65,6 +65,7 @@ class TaskModel(Base):
     __tablename__ = "tasks"
 
     id = Column(String(64), primary_key=True, index=True)
+    owner_id = Column(String(64), ForeignKey("users.id"), nullable=False, index=True)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     status = Column(String(50), default="pending", nullable=False)  # pending, in_progress, completed, failed
