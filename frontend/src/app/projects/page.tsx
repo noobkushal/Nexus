@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import {
@@ -57,9 +59,9 @@ export default function ProjectsPage() {
     try {
       setLoading(true);
       const [gRes, cRes, fRes] = await Promise.all([
-        fetch("http://127.0.0.1:8000/api/v1/storage/git/status"),
-        fetch("http://127.0.0.1:8000/api/v1/storage/git/checkpoints?limit=5"),
-        fetch(`http://127.0.0.1:8000/api/v1/storage/files?compartment=${selectedCompartment}`),
+        apiFetch("http://127.0.0.1:8000/api/v1/storage/git/status"),
+        apiFetch("http://127.0.0.1:8000/api/v1/storage/git/checkpoints?limit=5"),
+        apiFetch(`http://127.0.0.1:8000/api/v1/storage/files?compartment=${selectedCompartment}`),
       ]);
       if (gRes.ok) setGitStatus(await gRes.json());
       if (cRes.ok) setCheckpoints(await cRes.json());
@@ -81,7 +83,7 @@ export default function ProjectsPage() {
 
     try {
       setCheckpointLoading(true);
-      const res = await fetch("http://127.0.0.1:8000/api/v1/storage/git/checkpoint", {
+      const res = await apiFetch("http://127.0.0.1:8000/api/v1/storage/git/checkpoint", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -105,7 +107,7 @@ export default function ProjectsPage() {
 
   const handlePreviewFile = async (filePath: string) => {
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/v1/storage/read?path=${encodeURIComponent(filePath)}`);
+      const res = await apiFetch(`http://127.0.0.1:8000/api/v1/storage/read?path=${encodeURIComponent(filePath)}`);
       if (res.ok) {
         const data = await res.json();
         setPreviewContent({ path: filePath, text: data.content });
