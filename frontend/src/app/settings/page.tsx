@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { Settings, Cpu, HardDrive, Shield, Database, RefreshCw, CheckCircle2, Activity } from "lucide-react";
@@ -48,8 +50,8 @@ export default function SettingsPage() {
     try {
       setLoading(true);
       const [sRes, mRes] = await Promise.all([
-        fetch("http://127.0.0.1:8000/api/v1/settings"),
-        fetch("http://127.0.0.1:8000/api/v1/model-status"),
+        apiFetch("http://127.0.0.1:8000/api/v1/settings"),
+        apiFetch("http://127.0.0.1:8000/api/v1/model-status"),
       ]);
       if (sRes.ok) {
         const json = await sRes.json();
@@ -72,7 +74,7 @@ export default function SettingsPage() {
 
   const handleProviderSwitch = async () => {
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/v1/settings/provider", {
+      const res = await apiFetch("http://127.0.0.1:8000/api/v1/settings/provider", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ provider_name: selectedProvider }),
