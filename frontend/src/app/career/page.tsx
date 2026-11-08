@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import {
@@ -90,9 +92,9 @@ export default function CareerPage() {
   const loadData = async () => {
     try {
       const [eRes, mRes, jRes] = await Promise.all([
-        fetch("http://127.0.0.1:8000/api/v1/communications/emails"),
-        fetch("http://127.0.0.1:8000/api/v1/communications/messages"),
-        fetch("http://127.0.0.1:8000/api/v1/career/jobs"),
+        apiFetch("http://127.0.0.1:8000/api/v1/communications/emails"),
+        apiFetch("http://127.0.0.1:8000/api/v1/communications/messages"),
+        apiFetch("http://127.0.0.1:8000/api/v1/career/jobs"),
       ]);
       if (eRes.ok) setEmails(await eRes.json());
       if (mRes.ok) setMessages(await mRes.json());
@@ -111,7 +113,7 @@ export default function CareerPage() {
   const handleTailorResume = async (job: JobOpportunity) => {
     setTailoringJobId(job.id);
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/v1/career/tailor-resume", {
+      const res = await apiFetch("http://127.0.0.1:8000/api/v1/career/tailor-resume", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -144,7 +146,7 @@ export default function CareerPage() {
 
   const handleRequestEmailApproval = async (id: string) => {
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/v1/communications/emails/${id}/request-dispatch`, {
+      const res = await apiFetch(`http://127.0.0.1:8000/api/v1/communications/emails/${id}/request-dispatch`, {
         method: "POST",
       });
       if (res.ok) {
@@ -158,7 +160,7 @@ export default function CareerPage() {
 
   const handleDispatchEmail = async (id: string) => {
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/v1/communications/emails/${id}/dispatch`, {
+      const res = await apiFetch(`http://127.0.0.1:8000/api/v1/communications/emails/${id}/dispatch`, {
         method: "POST",
       });
       if (res.ok) {
@@ -179,7 +181,7 @@ export default function CareerPage() {
     if (!recipient || !subject || !body) return;
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/v1/communications/emails", {
+      const res = await apiFetch("http://127.0.0.1:8000/api/v1/communications/emails", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ recipient, subject, body, priority }),
