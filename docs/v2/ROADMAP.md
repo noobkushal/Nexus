@@ -13,6 +13,8 @@ Main branch: preserved; no direct commits planned.
 
 ## Phase 1 — Identity, policy, approvals, and audit
 
+Initial authentication slice added: scrypt password hashing, one-time owner bootstrap, short-lived signed access tokens, logout revocation, login throttling, authenticated API routing, and owner-only settings/approval decisions. See [Authentication Setup](AUTHENTICATION_SETUP.md). Phase 1 remains open until resource-level RBAC, durable device/session inventory, centralized tool policy, durable approvals, and audit coverage are implemented and verified.
+
 - [ ] Persistent owner identity and device/session model.
 - [ ] Owner-scoped resource authorization on every API route.
 - [ ] Central policy enforcement point for all tool invocations.
