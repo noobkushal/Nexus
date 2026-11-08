@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { apiFetch, getApiBase } from "@/lib/api-client";
 import {
   LayoutDashboard,
   MessageSquare,
@@ -30,6 +31,16 @@ const NAV_ITEMS = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    try {
+      await apiFetch(`${getApiBase()}/api/v1/auth/logout`, { method: "POST" });
+    } finally {
+      router.replace("/login");
+      router.refresh();
+    }
+  };
 
   return (
     <aside className="w-64 bg-nexus-900 border-r border-nexus-700 flex flex-col h-screen fixed left-0 top-0 select-none z-30">
@@ -76,8 +87,9 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* System Status Footer */}
+      {/* Session and System Status Footer */}
       <div className="p-4 border-t border-nexus-700 bg-nexus-950/60">
+        <button onClick={handleLogout} className="mb-3 w-full rounded-lg border border-nexus-700 px-3 py-2 text-xs font-medium text-nexus-300 hover:border-red-800 hover:text-red-300 transition-colors">Sign out</button>
         <div className="flex items-center justify-between text-xs mb-2">
           <span className="text-nexus-400 flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
