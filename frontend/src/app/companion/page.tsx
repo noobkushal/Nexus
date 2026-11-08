@@ -25,19 +25,19 @@ export default function CompanionPage() {
     const response = await fetch(url, {
       ...init,
       headers: {
-        Authorization: \`Bearer \${token.trim()}\`,
+        Authorization: `Bearer ${token.trim()}`,
         ...(init.headers || {}),
       },
     });
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body.error || body.detail || \`Local companion returned \${response.status}\`);
+    if (!response.ok) throw new Error(body.error || body.detail || `Local companion returned ${response.status}`);
     return body;
   };
 
   const connect = async () => {
     setBusy(true); setError(""); setNotice("");
     try {
-      const status = await request(\`\${COMPANION}/v1/status\`);
+      const status = await request(`${COMPANION}/v1/status`);
       setWorkspace(status.workspace || "");
       setConnected(true);
       await loadDirectory("");
@@ -51,7 +51,7 @@ export default function CompanionPage() {
   const loadDirectory = async (nextPath: string) => {
     setBusy(true); setError("");
     try {
-      const data = await request(\`\${COMPANION}/v1/files?path=\${encodeURIComponent(nextPath)}\`);
+      const data = await request(`${COMPANION}/v1/files?path=${encodeURIComponent(nextPath)}`);
       setPath(nextPath);
       setEntries(data.entries || []);
       setSelectedFile("");
@@ -64,7 +64,7 @@ export default function CompanionPage() {
   const openFile = async (relativePath: string) => {
     setBusy(true); setError("");
     try {
-      const data = await request(\`\${COMPANION}/v1/files/read?path=\${encodeURIComponent(relativePath)}\`);
+      const data = await request(`${COMPANION}/v1/files/read?path=${encodeURIComponent(relativePath)}`);
       setSelectedFile(relativePath);
       setContent(data.content || "");
     } catch (err) {
@@ -74,10 +74,10 @@ export default function CompanionPage() {
 
   const saveFile = async () => {
     if (!selectedFile) return;
-    if (!window.confirm(\`Save changes to \${selectedFile} on this PC?\`)) return;
+    if (!window.confirm(`Save changes to ${selectedFile} on this PC?`)) return;
     setBusy(true); setError(""); setNotice("");
     try {
-      await request(\`\${COMPANION}/v1/files/write\`, {
+      await request(`${COMPANION}/v1/files/write`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-NEXUS-LOCAL-CONFIRM": "true" },
         body: JSON.stringify({ path: selectedFile, content }),
@@ -103,7 +103,7 @@ export default function CompanionPage() {
                 <p className="text-xs text-nexus-400">Runs only on the PC where this browser and companion are running.</p>
               </div>
             </div>
-            <span className={\`text-[10px] px-2 py-1 rounded border \${connected ? "text-emerald-400 border-emerald-800 bg-emerald-950" : "text-nexus-400 border-nexus-700 bg-nexus-950"}\`}>
+            <span className={`text-[10px] px-2 py-1 rounded border ${connected ? "text-emerald-400 border-emerald-800 bg-emerald-950" : "text-nexus-400 border-nexus-700 bg-nexus-950"}`}>
               {connected ? "CONNECTED" : "DISCONNECTED"}
             </span>
           </div>
@@ -137,9 +137,9 @@ export default function CompanionPage() {
             {path && <button onClick={() => loadDirectory(parentPath)} disabled={busy} className="text-xs text-cyan-400 hover:underline">.. Up one level</button>}
             <div className="space-y-1">
               {entries.map((entry) => {
-                const childPath = path ? \`\${path}/\${entry.name}\` : entry.name;
+                const childPath = path ? `${path}/${entry.name}` : entry.name;
                 return (
-                  <button key={childPath} onClick={() => entry.type === "directory" ? loadDirectory(childPath) : openFile(childPath)} disabled={busy} className={\`w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-xs hover:bg-nexus-800 \${selectedFile === childPath ? "bg-nexus-800 text-cyan-300" : "text-nexus-300"}\`}>
+                  <button key={childPath} onClick={() => entry.type === "directory" ? loadDirectory(childPath) : openFile(childPath)} disabled={busy} className={`w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-xs hover:bg-nexus-800 ${selectedFile === childPath ? "bg-nexus-800 text-cyan-300" : "text-nexus-300"}`}>
                     <span className="flex items-center gap-2 min-w-0">{entry.type === "directory" ? <Folder className="w-4 h-4 shrink-0 text-amber-400" /> : <FileCode2 className="w-4 h-4 shrink-0 text-cyan-400" />}<span className="truncate">{entry.name}</span></span>
                     {entry.type === "file" && <span className="text-[10px] text-nexus-500">{entry.size || 0} B</span>}
                   </button>
