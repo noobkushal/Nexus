@@ -142,7 +142,7 @@ export default function SettingsPage() {
           </div>
 
           <p className="text-xs text-nexus-400 leading-relaxed">
-            NEXUS is 100% provider-independent. You can run purely on the instant mock engine without dependencies, or connect your local Ollama runner when available.
+            Ollama is optional. NEXUS can use the offline mock engine or any configured OpenAI-compatible hosted or self-hosted endpoint. Only configured providers appear below.
           </p>
 
           <div className="flex items-center gap-4">
@@ -151,8 +151,11 @@ export default function SettingsPage() {
               onChange={(e) => setSelectedProvider(e.target.value)}
               className="bg-nexus-950 border border-nexus-700 rounded-lg px-3 py-2 text-xs text-nexus-100 font-mono focus:outline-none focus:border-cyan-500"
             >
-              <option value="mock">Deterministic Mock Provider (Offline Safe, Active)</option>
-              <option value="ollama">Ollama Local Engine (qwen3.5:4b @ 127.0.0.1:11434)</option>
+              {data?.registered_providers.map((provider) => (
+                <option key={provider.name} value={provider.name}>
+                  {provider.name} {provider.is_mock ? "(offline mock)" : provider.is_available ? "(available)" : "(configured / unavailable)"}
+                </option>
+              ))}
             </select>
             <button
               onClick={handleProviderSwitch}
@@ -166,7 +169,7 @@ export default function SettingsPage() {
           {modelStatus && (
             <div className="p-3.5 rounded-lg bg-nexus-950 border border-nexus-800 text-[11px] font-mono space-y-2">
               <div className="flex items-center justify-between text-nexus-300">
-                <span>Local Ollama Diagnostic:</span>
+                <span>Optional local Ollama diagnostic:</span>
                 <span
                   className={`px-2 py-0.5 rounded text-[10px] ${
                     modelStatus.connectivity.connected

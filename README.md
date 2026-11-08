@@ -24,7 +24,8 @@ Designed from the ground up to operate with **zero hard dependencies**, NEXUS bo
 7. [Installation & Windows PowerShell Execution](#installation--windows-powershell-execution)
 8. [Automated Verification & Test Suite](#automated-verification--test-suite)
 9. [REST API Reference Summary](#rest-api-reference-summary)
-10. [Repository Structure](#repository-structure)
+10. [Windows Companion](#windows-companion)
+11. [Repository Structure](#repository-structure)
 
 ---
 
@@ -33,7 +34,7 @@ Designed from the ground up to operate with **zero hard dependencies**, NEXUS bo
 1. **100% Dependency Independence**:
    - Boots and runs instantly in offline standalone mode.
    - Built on an abstract `BaseLLMProvider` with an instant, deterministic `MockProvider` active by default (`nexus-mock-engine-v1`).
-   - Optional local GPU inference via `OllamaProvider` (`qwen3.5:4b`) probed non-blockingly without delaying startup.
+   - Optional local GPU inference via `OllamaProvider` (`qwen3.5:4b`) and optional hosted/self-hosted OpenAI-compatible providers. Ollama is not a requirement.
 2. **Deterministic Safety Barriers**:
    - Consequential operations (transmitting emails, outbound messaging, deleting files, trigger pipelines) strictly require human operator authorization before execution.
    - Outputs are strictly segregated: NEXUS never claims an action was executed merely because a model recommended it (`claimed_actions_executed: false`).
@@ -119,6 +120,7 @@ graph TD
 ### 5. Task Scheduling, Reminders & Daily Briefings
 - `BriefingService` compiles operational diagnostics, pending approvals, task pipeline, and agent activity.
 - Automatically generates and saves markdown reports to `storage/generated/daily_briefing_<timestamp>.md`.
+- Task data and workflow execution records are persisted and owner-scoped; workflow history survives backend restarts.
 - Scheduled reminders endpoint (`/api/v1/briefings/reminders`) surfaces critical tasks and approval requests.
 
 ### 6. Browser & Web Research Agent
@@ -141,8 +143,8 @@ graph TD
 - Interactive file explorer in the Next.js UI with live code and document preview modal.
 
 ### 10. Career Research & Job Discovery
-- `CareerService` matches candidate profiles against discovered opportunities.
-- Computes semantic keyword alignment and match scores (0.0 to 1.0).
+- The current job cards are sample fixtures, not verified live vacancies. A real job-board provider and refresh/cache layer are still pending.
+- Resume tailoring is a draft-generation aid; verify every claim against the candidate's actual experience before using it.
 
 ### 11. LinkedIn Assistance & Dynamic Resume Tailoring
 - Dynamic CV tailoring engine parses job descriptions, aligns candidate experience, and persists customized variants to `storage/generated/tailored_resume_<company>_<timestamp>.md`.
@@ -150,7 +152,7 @@ graph TD
 
 ### 12. Workflow Builder & Automation Manager
 - Dispatches real HTTP requests to registered n8n webhook paths when `N8N_WEBHOOK_URL` is configured.
-- Fails closed when n8n is not configured and records transport failures as failed (never simulated-success) executions.
+- Persists execution history per owner and records transport failures as failed (never simulated-success) executions.
 
 ### 13. Skills & Integrations Registry
 - `SkillsRegistry` enforces a strict least-privilege matrix.
@@ -192,11 +194,15 @@ graph TD
 
 ---
 
+## Windows Companion
+
+A local-only Windows companion preview is available in `companion/`. It provides authenticated workspace listing, reading, and explicitly confirmed text writes. It binds to loopback only and does not expose arbitrary shell execution. Setup and limitations: [Windows Companion guide](docs/WINDOWS_COMPANION.md). Android relay, backend device pairing, Playwright browser control, and full desktop automation are not yet implemented.
+
 ## Database & Persistence Architecture
 
 The database layer provides an abstraction supporting zero-config local SQLite file storage by default, with instant portability to PostgreSQL + pgvector when configured.
 
-All 8 primary entities are defined in [`app/db/models.py`](file:///E:/NEXUS/backend/app/db/models.py):
+The primary entities are defined in [`app/db/models.py`](file:///E:/NEXUS/backend/app/db/models.py):
 1. `UserModel`: Operator accounts and roles.
 2. `ConversationModel`: Conversational session tracking.
 3. `MessageModel`: Multi-turn messages with intent and agent routing tags.
@@ -205,6 +211,8 @@ All 8 primary entities are defined in [`app/db/models.py`](file:///E:/NEXUS/back
 6. `AgentActivityModel`: Immutable audit trail of agent actions.
 7. `MemoryRecordModel`: Long-term semantic profile and preference records.
 8. `IntegrationSettingModel`: Config keys, secrets, and integration payloads.
+9. `ApprovalModel` and `AuditEventModel`: Durable payload-bound approvals and security audit records.
+10. `WorkflowExecutionModel`: Owner-scoped persisted n8n dispatch history.
 
 ---
 
@@ -400,3 +408,8 @@ E:\NEXUS
 
 ## License
 MIT License. Engineered for local-first autonomous operations.
+
+
+## Current implementation boundaries
+
+NEXUS V2 is under active development. Email/LinkedIn transports, Android remote control, backend device pairing, browser automation, live job feeds, and production deployment are not yet connected. Do not interpret demo fixtures as live external data. See [the V2 status](docs/NEXUS_V2_STATUS.md).
