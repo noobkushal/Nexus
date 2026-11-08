@@ -318,6 +318,10 @@ Interactive Swagger UI documentation is available at [http://127.0.0.1:8000/docs
 
 | Route Prefix | Method | Endpoint | Description |
 |---|---|---|---|
+| **Authentication** | `POST` | `/api/v1/auth/bootstrap` | One-time first-owner setup using out-of-band secret |
+| | `POST` | `/api/v1/auth/login` | Password login; issues short-lived HttpOnly session cookie |
+| | `GET` | `/api/v1/auth/me` | Current authenticated owner profile |
+| | `POST` | `/api/v1/auth/logout` | Revoke current token version and clear session cookie |
 | **Health** | `GET` | `/api/v1/health` | Backend status, active provider, and storage diagnostics |
 | | `GET` | `/api/v1/model-status` | Non-blocking hardware and Ollama status probe |
 | **Chat** | `POST` | `/api/v1/chat` | Directed state graph multi-agent prompt synthesis |
@@ -328,8 +332,9 @@ Interactive Swagger UI documentation is available at [http://127.0.0.1:8000/docs
 | | `DELETE`| `/api/v1/tasks/{id}` | Remove task |
 | **Agents** | `GET` | `/api/v1/agents` | List multi-agent roster and declared permissions |
 | | `GET` | `/api/v1/agents/activities` | Query historical agent audit trail |
-| **Approvals** | `GET` | `/api/v1/approvals` | List pending consequential action proposals |
-| | `POST` | `/api/v1/approvals/{id}/decision`| Approve or reject action proposal |
+| **Approvals** | `GET` | `/api/v1/approvals` | List owner-scoped persistent action proposals |
+| | `POST` | `/api/v1/approvals` | Create a payload-hash-bound approval request |
+| | `POST` | `/api/v1/approvals/{id}/decision`| Approve or reject using the exact returned payload hash |
 | **Storage** | `GET` | `/api/v1/storage/files` | List files within sandboxed compartments |
 | | `POST` | `/api/v1/storage/git/checkpoint`| Create automated Git safety snapshot |
 | **Workflows**| `GET` | `/api/v1/workflows` | List registered automation pipelines |
