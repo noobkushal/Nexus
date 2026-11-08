@@ -22,8 +22,13 @@ def _to_response(row: TaskModel) -> TaskResponse:
 class TaskService:
     """All task operations are persisted and scoped to the authenticated owner."""
 
-    def list_tasks(self, owner_id: str, db: Session, status: Optional[TaskStatus] = None,
+    def list_tasks(self, owner_id: Optional[str] = None, db: Optional[Session] = None,
+                   status: Optional[TaskStatus] = None,
                    priority: Optional[TaskPriority] = None) -> List[TaskResponse]:
+        # Background/legacy callers without an authenticated owner must never receive
+        # a global task listing. They get an empty result until they pass explicit scope.
+        if not owner_id or db is None:
+            return []
         query = db.query(TaskModel).filter(TaskModel.owner_id == owner_id)
         if status:
             query = query.filter(TaskModel.status == status.value)
