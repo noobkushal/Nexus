@@ -92,7 +92,7 @@ graph TD
 | `personal_agent` | **Aura** | Personal Assistant & Coordinator | Dialogue, task dispatch, daily briefings, schedule synthesis | `read:profile`, `read:tasks`, `write:tasks` |
 | `research_agent` | **Scout** | Web & Document Researcher | Anti-SSRF web reading, HTML sanitization, dossier archiving | `read:storage/documents`, `network:outbound_readonly` |
 | `coding_agent` | **Forge** | Software Development & Scaffolding | Code analysis, project scaffolding, automated Git checkpoints | `read:approved_projects`, `write:approved_projects` |
-| `workflow_agent` | **Conduit** | Workflow Automation & n8n Bridge | Triggering simulated/live webhooks, execution run monitoring | `invoke:n8n_webhooks` |
+| `workflow_agent` | **Conduit** | Workflow Automation & n8n Bridge | Triggering configured n8n webhooks, execution run monitoring | `invoke:n8n_webhooks` |
 | `career_agent` | **Apex** | Career Strategist & Resume Tailoring | Job discovery, dynamic CV tailoring, quarantined outreach | `read:profile`, `write:storage/generated` |
 
 ---
@@ -149,8 +149,8 @@ graph TD
 - Outbound LinkedIn connection notes drafted and quarantined in the review queue.
 
 ### 12. Workflow Builder & Automation Manager
-- Simulated n8n workflow execution engine tracking pipeline runs and execution history.
-- Optional webhook dispatcher ready for live n8n Docker containers.
+- Dispatches real HTTP requests to registered n8n webhook paths when `N8N_WEBHOOK_URL` is configured.
+- Fails closed when n8n is not configured and records transport failures as failed (never simulated-success) executions.
 
 ### 13. Skills & Integrations Registry
 - `SkillsRegistry` enforces a strict least-privilege matrix.
@@ -200,7 +200,7 @@ All 8 primary entities are defined in [`app/db/models.py`](file:///E:/NEXUS/back
 1. `UserModel`: Operator accounts and roles.
 2. `ConversationModel`: Conversational session tracking.
 3. `MessageModel`: Multi-turn messages with intent and agent routing tags.
-4. `TaskModel`: Work items, priority levels, and status state machine.
+4. `TaskModel`: Owner-scoped persistent work items, priority levels, and status state machine.
 5. `AgentModel`: Multi-agent roster registry and permission definitions.
 6. `AgentActivityModel`: Immutable audit trail of agent actions.
 7. `MemoryRecordModel`: Long-term semantic profile and preference records.
@@ -338,7 +338,7 @@ Interactive Swagger UI documentation is available at [http://127.0.0.1:8000/docs
 | **Storage** | `GET` | `/api/v1/storage/files` | List files within sandboxed compartments |
 | | `POST` | `/api/v1/storage/git/checkpoint`| Create automated Git safety snapshot |
 | **Workflows**| `GET` | `/api/v1/workflows` | List registered automation pipelines |
-| | `POST` | `/api/v1/workflows/{id}/trigger` | Trigger simulated or live webhook run |
+| | `POST` | `/api/v1/workflows/{id}/trigger` | Dispatch registered workflow to configured n8n webhook |
 | **Memory** | `GET` | `/api/v1/memory` | Retrieve long-term memories by category |
 | | `POST` | `/api/v1/memory/consolidate` | Extract developer directives from chat history |
 | **Comms** | `GET` | `/api/v1/communications/emails` | List drafted and queued emails |
