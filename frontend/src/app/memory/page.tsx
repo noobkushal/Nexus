@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { Brain, Database, Plus, Search, ShieldCheck } from "lucide-react";
@@ -26,7 +28,7 @@ export default function MemoryPage() {
       const url = categoryFilter
         ? `http://127.0.0.1:8000/api/v1/memory?category=${categoryFilter}`
         : "http://127.0.0.1:8000/api/v1/memory";
-      const res = await fetch(url);
+      const res = await apiFetch(url);
       if (res.ok) setMemories(await res.json());
     } catch (err) {
       console.error("Failed to load memory", err);
@@ -42,7 +44,7 @@ export default function MemoryPage() {
     if (!newKey.trim() || !newContent.trim()) return;
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/v1/memory", {
+      const res = await apiFetch("http://127.0.0.1:8000/api/v1/memory", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
