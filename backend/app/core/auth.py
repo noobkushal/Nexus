@@ -7,7 +7,7 @@ import secrets
 import time
 from typing import Callable, Optional
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Cookie, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -83,10 +83,11 @@ def decode_access_token(token: str) -> dict:
     except Exception as exc:
         raise HTTPException(status_code=401, detail="Invalid or expired access token.", headers={"WWW-Authenticate": "Bearer"}) from exc
 
-def get_current_user(authorization: Optional[str] = Header(None, alias="Authorization"), db: Session = Depends(get_db)) -> UserModel:
-    if not authorization or not authorization.startswith("Bearer "):
+def get_current_user(authorization: Optional[str] = Header(None, alias="Authorization"), db: Session = Depends(get_db), nexus_access_token: Optional[str] = Cookie(None)) -> UserModel:
+    token = authorization[7:].strip() if authorization and authorization.startswith("Bearer ") else nexus_access_token
+    if not token:
         raise HTTPException(status_code=401, detail="Authentication required.", headers={"WWW-Authenticate": "Bearer"})
-    claims = decode_access_token(authorization[7:].strip())
+    claims = decode_access_token(token)
     user = db.query(UserModel).filter(UserModel.id == claims["sub"]).first()
     if not user or not user.is_active or user.token_version != claims["ver"]:
         raise HTTPException(status_code=401, detail="Session is invalid or has been revoked.", headers={"WWW-Authenticate": "Bearer"})
