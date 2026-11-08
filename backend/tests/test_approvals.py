@@ -103,3 +103,19 @@ def test_approved_request_can_be_consumed_only_once(approval_db):
     assert consumed.status == ApprovalStatus.CONSUMED
     assert consumed.consumed_at is not None
     assert service.consume_approval(created.id, created.payload_hash, owner_id, db) is None
+
+
+def test_owner_can_decide_operator_created_approval(approval_db):
+    db, _, owner_id = approval_db
+    operator_id = str(uuid.uuid4())
+    db.add(UserModel(id=operator_id, username="approval-operator", role="operator", is_active=True, token_version=0))
+    db.commit()
+
+    service = ApprovalService()
+    created = service.request_approval(make_request(), operator_id, db)
+    decision = ApprovalDecision(decision=ApprovalStatus.APPROVED, payload_hash=created.payload_hash)
+    decided = service.decide_approval(created.id, decision, owner_id, db)
+
+    assert decided.status == ApprovalStatus.APPROVED
+    assert decided.reviewer_id == owner_id
+    assert decided.id == created.id
