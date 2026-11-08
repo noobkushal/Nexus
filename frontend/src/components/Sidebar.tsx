@@ -15,6 +15,7 @@ import {
   Settings,
   ShieldCheck,
   Cpu,
+  Monitor,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { href: "/memory", label: "Memory & Profile", icon: Brain },
   { href: "/projects", label: "Projects & Code", icon: FolderGit2 },
   { href: "/career", label: "Career & Outreach", icon: Briefcase },
+  { href: "/companion", label: "Windows Companion", icon: Monitor },
   { href: "/settings", label: "System Settings", icon: Settings },
 ];
 
