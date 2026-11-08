@@ -13,7 +13,7 @@ Main branch: preserved; no direct commits planned.
 
 ## Phase 1 — Identity, policy, approvals, and audit
 
-Initial security slice added: scrypt password hashing, one-time owner bootstrap, short-lived signed access tokens, logout revocation, login throttling, authenticated API routing, owner-only settings/approval decisions, persistent owner-scoped approvals, 15-minute expiry, payload-digest-bound decisions, atomic one-time consumption, and approval audit events. See [Authentication Setup](AUTHENTICATION_SETUP.md). Phase 1 remains open until granular resource scopes, durable device/session inventory, centralized policy enforcement at every tool execution boundary, auth audit coverage, and end-to-end approval enforcement are implemented and verified.
+Initial security slice added: scrypt password hashing, one-time owner bootstrap, short-lived signed access tokens, HttpOnly browser cookies, logout revocation, login throttling, dashboard login/route guard, authenticated API routing, owner-only settings/approval decisions, persistent owner-scoped approvals, 15-minute expiry, payload-digest-bound decisions, atomic one-time consumption, and identity/approval audit events. Communications now verifies exact approval payloads and explicitly reports unsent when no outbound provider is configured. See [Authentication Setup](AUTHENTICATION_SETUP.md). Phase 1 remains open until granular resource scopes, durable device/session inventory, centralized policy enforcement at every tool execution boundary, redacted comprehensive audit coverage, and end-to-end approval enforcement are implemented and verified.
 
 - [ ] Persistent owner identity and device/session model.
 - [ ] Owner-scoped resource authorization on every API route.
