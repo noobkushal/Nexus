@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import create_access_token, hash_password, verify_password, get_current_user, _signing_key
 from app.core.config import settings
-from app.db.models import UserModel
+from app.db.models import UserModel, AuditEventModel
 from app.db.session import get_db
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
@@ -26,6 +26,10 @@ class LoginRequest(BaseModel):
     username: str = Field(..., min_length=1, max_length=64)
     password: str = Field(..., min_length=1, max_length=256)
 
+def _audit_auth(db: Session, actor_id: str | None, event_type: str, details: dict):
+    db.add(AuditEventModel(id=str(uuid.uuid4()), actor_user_id=actor_id, event_type=event_type, resource_id=actor_id, details_json=__import__("json").dumps(details, sort_keys=True), created_at=datetime.now(timezone.utc)))
+
+
 def _public_user(user: UserModel) -> dict:
     return {"id": user.id, "username": user.username, "role": user.role, "created_at": user.created_at}
 
@@ -41,6 +45,7 @@ def bootstrap_owner(request: BootstrapRequest, bootstrap_secret: str = Header(""
         raise HTTPException(status_code=409, detail="Username is already registered.")
     user = UserModel(id=str(uuid.uuid4()), username=request.username, role="owner", password_hash=hash_password(request.password), is_active=True, token_version=0, created_at=datetime.now(timezone.utc))
     db.add(user)
+    _audit_auth(db, user.id, "identity.owner_bootstrapped", {"outcome": "success"})
     db.commit()
     db.refresh(user)
     token = create_access_token(user)
@@ -59,8 +64,12 @@ def login(request: LoginRequest, db: Session = Depends(get_db), response: Respon
     if not user or not user.is_active or not user.password_hash or not verify_password(request.password, user.password_hash):
         attempts.append(now)
         _LOGIN_FAILURES[key] = attempts
+        _audit_auth(db, None, "identity.login_denied", {"outcome": "denied"})
+        db.commit()
         raise HTTPException(status_code=401, detail="Invalid username or password.", headers={"WWW-Authenticate": "Bearer"})
     _LOGIN_FAILURES.pop(key, None)
+    _audit_auth(db, user.id, "identity.login_succeeded", {"outcome": "success"})
+    db.commit()
     token = create_access_token(user)
     if response is not None:
         response.set_cookie(key="nexus_access_token", value=token, httponly=True, secure=settings.ENVIRONMENT.lower() == "production", samesite="lax", max_age=settings.ACCESS_TOKEN_TTL_MINUTES * 60, path="/")
@@ -74,6 +83,7 @@ def who_am_i(user: UserModel = Depends(get_current_user)):
 def logout(user: UserModel = Depends(get_current_user), db: Session = Depends(get_db), response: Response = None):
     user.token_version += 1
     db.add(user)
+    _audit_auth(db, user.id, "identity.session_revoked", {"outcome": "success"})
     db.commit()
     if response is not None:
         response.delete_cookie(key="nexus_access_token", path="/", httponly=True, secure=settings.ENVIRONMENT.lower() == "production", samesite="lax")
