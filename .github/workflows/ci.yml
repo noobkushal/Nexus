@@ -47,3 +47,14 @@ jobs:
         run: npm install
       - name: Build
         run: npm run build
+
+  companion:
+    name: Windows companion policy tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run companion tests
+        run: python -m unittest discover -s companion -p "test_*.py" -v
