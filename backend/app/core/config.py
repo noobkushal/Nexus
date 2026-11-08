@@ -21,12 +21,16 @@ class Settings(BaseSettings):
     PORT: int = 8000
     LOG_LEVEL: str = "INFO"
 
-    # AI Provider Configuration
-    # Defaults to 'mock' so application runs without external dependencies
+    # Provider-neutral AI configuration
+    # Mock remains the safe default; real providers are opt-in.
     DEFAULT_PROVIDER: str = "mock"
     OLLAMA_BASE_URL: str = "http://127.0.0.1:11434"
     OLLAMA_MODEL: str = "qwen3.5:4b"
     OLLAMA_TIMEOUT_SECONDS: float = 60.0
+    OPENAI_COMPAT_BASE_URL: Optional[str] = None
+    OPENAI_COMPAT_API_KEY: Optional[str] = None
+    OPENAI_COMPAT_MODEL: Optional[str] = None
+    OPENAI_COMPAT_TIMEOUT_SECONDS: float = 45.0
 
     # Database Configuration (Optional - falls back to SQLite in-memory/local file)
     DATABASE_URL: Optional[str] = None
