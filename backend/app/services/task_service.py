@@ -1,8 +1,9 @@
-"""Task Service for tracking platform tasks and agent work items."""
+"""Persistent, owner-scoped task service."""
 import uuid
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
-from app.core.logging import logger
+from typing import List, Optional
+from sqlalchemy.orm import Session
+from app.db.models import TaskModel
 from app.schemas.task import TaskCreate, TaskPriority, TaskResponse, TaskStatus, TaskUpdate
 
 
@@ -10,113 +11,61 @@ def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _to_response(row: TaskModel) -> TaskResponse:
+    return TaskResponse(
+        id=row.id, title=row.title, description=row.description,
+        status=TaskStatus(row.status), priority=TaskPriority(row.priority),
+        assigned_agent=row.assigned_agent, created_at=row.created_at, updated_at=row.updated_at,
+    )
+
+
 class TaskService:
-    """In-memory task store with support for persistence hooks."""
+    """All task operations are persisted and scoped to the authenticated owner."""
 
-    def __init__(self):
-        self._tasks: Dict[str, TaskResponse] = {}
-        self._seed_initial_tasks()
-
-    def _seed_initial_tasks(self):
-        """Seed foundational system tasks."""
-        seeds = [
-            (
-                "Initialize NEXUS Foundation",
-                "Scaffold modular FastAPI backend and establish deterministic mock AI provider.",
-                TaskStatus.COMPLETED,
-                TaskPriority.HIGH,
-                "orchestrator",
-            ),
-            (
-                "Deploy Dashboard Interface",
-                "Construct Next.js dark-themed dashboard with responsive navigation and status cards.",
-                TaskStatus.IN_PROGRESS,
-                TaskPriority.HIGH,
-                "personal_agent",
-            ),
-            (
-                "Establish n8n Integration Pipeline",
-                "Configure webhook listeners and execution contracts for external automations.",
-                TaskStatus.PENDING,
-                TaskPriority.MEDIUM,
-                "orchestrator",
-            ),
-            (
-                "Configure Long-Term Memory Vector Store",
-                "Prepare PostgreSQL + pgvector schema and abstraction interfaces.",
-                TaskStatus.PENDING,
-                TaskPriority.LOW,
-                "personal_agent",
-            ),
-        ]
-        now = utc_now()
-        for title, desc, status, priority, agent in seeds:
-            tid = str(uuid.uuid4())[:8]
-            self._tasks[tid] = TaskResponse(
-                id=tid,
-                title=title,
-                description=desc,
-                status=status,
-                priority=priority,
-                assigned_agent=agent,
-                created_at=now,
-                updated_at=now,
-            )
-
-    def list_tasks(
-        self,
-        status: Optional[TaskStatus] = None,
-        priority: Optional[TaskPriority] = None,
-    ) -> List[TaskResponse]:
-        tasks = list(self._tasks.values())
+    def list_tasks(self, owner_id: str, db: Session, status: Optional[TaskStatus] = None,
+                   priority: Optional[TaskPriority] = None) -> List[TaskResponse]:
+        query = db.query(TaskModel).filter(TaskModel.owner_id == owner_id)
         if status:
-            tasks = [t for t in tasks if t.status == status]
+            query = query.filter(TaskModel.status == status.value)
         if priority:
-            tasks = [t for t in tasks if t.priority == priority]
-        # Return newest first
-        return sorted(tasks, key=lambda t: t.created_at, reverse=True)
+            query = query.filter(TaskModel.priority == priority.value)
+        return [_to_response(row) for row in query.order_by(TaskModel.created_at.desc()).all()]
 
-    def get_task(self, task_id: str) -> Optional[TaskResponse]:
-        return self._tasks.get(task_id)
+    def get_task(self, task_id: str, owner_id: str, db: Session) -> Optional[TaskResponse]:
+        row = db.query(TaskModel).filter(TaskModel.id == task_id, TaskModel.owner_id == owner_id).first()
+        return _to_response(row) if row else None
 
-    def create_task(self, payload: TaskCreate) -> TaskResponse:
+    def create_task(self, payload: TaskCreate, owner_id: str, db: Session) -> TaskResponse:
         now = utc_now()
-        tid = str(uuid.uuid4())[:8]
-        task = TaskResponse(
-            id=tid,
-            title=payload.title,
-            description=payload.description,
-            status=TaskStatus.PENDING,
-            priority=payload.priority,
-            assigned_agent=payload.assigned_agent,
-            created_at=now,
-            updated_at=now,
+        row = TaskModel(
+            id=str(uuid.uuid4()), owner_id=owner_id, title=payload.title.strip(),
+            description=payload.description, status=TaskStatus.PENDING.value,
+            priority=payload.priority.value, assigned_agent=payload.assigned_agent,
+            created_at=now, updated_at=now,
         )
-        self._tasks[tid] = task
-        logger.info(f"Task created: {tid} - {task.title}")
-        return task
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return _to_response(row)
 
-    def update_task(self, task_id: str, payload: TaskUpdate) -> Optional[TaskResponse]:
-        task = self._tasks.get(task_id)
-        if not task:
+    def update_task(self, task_id: str, payload: TaskUpdate, owner_id: str, db: Session) -> Optional[TaskResponse]:
+        row = db.query(TaskModel).filter(TaskModel.id == task_id, TaskModel.owner_id == owner_id).first()
+        if not row:
             return None
+        for key, value in payload.model_dump(exclude_unset=True).items():
+            setattr(row, key, value.value if hasattr(value, "value") else value)
+        row.updated_at = utc_now()
+        db.commit()
+        db.refresh(row)
+        return _to_response(row)
 
-        update_data = payload.model_dump(exclude_unset=True)
-        task_dict = task.model_dump()
-        task_dict.update(update_data)
-        task_dict["updated_at"] = utc_now()
-
-        updated_task = TaskResponse(**task_dict)
-        self._tasks[task_id] = updated_task
-        logger.info(f"Task updated: {task_id} - status={updated_task.status}")
-        return updated_task
-
-    def delete_task(self, task_id: str) -> bool:
-        if task_id in self._tasks:
-            del self._tasks[task_id]
-            logger.info(f"Task deleted: {task_id}")
-            return True
-        return False
+    def delete_task(self, task_id: str, owner_id: str, db: Session) -> bool:
+        row = db.query(TaskModel).filter(TaskModel.id == task_id, TaskModel.owner_id == owner_id).first()
+        if not row:
+            return False
+        db.delete(row)
+        db.commit()
+        return True
 
 
 task_service = TaskService()
