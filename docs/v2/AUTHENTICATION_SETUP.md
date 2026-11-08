@@ -1,0 +1,55 @@
+# NEXUS V2 Authentication Setup
+
+This milestone adds first-owner bootstrap, password login, signed bearer tokens, logout revocation, and server-side role dependencies.
+
+## 1. Configure secrets
+
+Copy `backend/.env.example` to `backend/.env`. Generate two independent random values (do not reuse either value):
+
+```powershell
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+Set the generated values:
+
+- `AUTH_SECRET_KEY`: signing key, at least 32 characters.
+- `AUTH_BOOTSTRAP_SECRET`: one-time owner-bootstrap secret, at least 24 characters.
+- `ACCESS_TOKEN_TTL_MINUTES`: short-lived access token lifetime; default 20 minutes.
+
+Never commit `.env`, share these values in chat, or put them in frontend environment variables.
+
+## 2. Start the backend
+
+Install backend requirements and start FastAPI as described in the project README. On startup, the database creates missing tables and applies additive auth-column migration to an existing `users` table.
+
+## 3. Create the first owner exactly once
+
+Call `POST /api/v1/auth/bootstrap` with the `X-Nexus-Bootstrap-Secret` header and JSON body:
+
+```json
+{
+  "username": "owner",
+  "password": "use-a-unique-password-at-least-12-characters"
+}
+```
+
+The response contains a short-lived bearer access token. Store it only in a secure client session. The bootstrap endpoint refuses requests without the configured secret and refuses to run after any user record exists. There are no default credentials and no public registration endpoint.
+
+## 4. Login and use protected APIs
+
+- `POST /api/v1/auth/login` accepts username/password and returns a short-lived bearer token.
+- `GET /api/v1/auth/me` returns the authenticated user's public profile.
+- `POST /api/v1/auth/logout` increments the user's token version and immediately invalidates previously issued tokens.
+- Product API routes require `Authorization: Bearer <access_token>`.
+- `/health`, `/`, bootstrap, and login remain public. Settings changes and approval decisions are owner-only.
+
+Do not store access tokens in browser localStorage. The frontend login/session integration is a separate delivery slice; until it is implemented, unauthenticated frontend API calls will receive HTTP 401.
+
+## Current scope and limitations
+
+- Passwords are stored as salted scrypt hashes; plaintext passwords are never persisted.
+- Tokens are HS256-signed, short-lived, issuer-checked, expiry-checked, and checked against the database token version on each request.
+- Failed login attempts are rate-limited per username in the running backend process. A multi-worker deployment should move this limiter to a shared store.
+- Roles currently recognized by the authorization helper are `owner`, `operator`, and `auditor`. Role administration, granular per-resource scopes, MFA/passkeys, refresh-token rotation, durable device inventory, and distributed rate limiting are not yet implemented.
+- Existing legacy users without a password hash cannot log in; do not automatically promote them or assign a default password. Plan a controlled owner recovery/migration before enabling a pre-existing multi-user database.
+- This milestone does not yet make approvals durable or payload-bound; that is the next security-engine work after auth/RBAC review.
