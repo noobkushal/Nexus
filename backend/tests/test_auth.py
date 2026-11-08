@@ -83,6 +83,7 @@ def test_bootstrap_login_and_logout_revoke_session(monkeypatch):
     from sqlalchemy.orm import sessionmaker
     from sqlalchemy.pool import StaticPool
     from app.api.auth import BootstrapRequest, LoginRequest, bootstrap_owner, login, logout
+    from fastapi import Response
     from app.core.auth import get_current_user
     from app.db.session import Base
     from app.db import models  # noqa: F401
@@ -93,16 +94,16 @@ def test_bootstrap_login_and_logout_revoke_session(monkeypatch):
     monkeypatch.setattr(settings, "AUTH_SECRET_KEY", "s" * 48)
     monkeypatch.setattr(settings, "AUTH_BOOTSTRAP_SECRET", "b" * 32)
 
-    created = bootstrap_owner(BootstrapRequest(username="owner", password="a sufficiently long password"), "b" * 32, db)
+    created = bootstrap_owner(BootstrapRequest(username="owner", password="a sufficiently long password"), Response(), "b" * 32, db)
     assert created["user"]["role"] == "owner"
     assert "password_hash" not in created["user"]
 
-    signed_in = login(LoginRequest(username="owner", password="a sufficiently long password"), db)
+    signed_in = login(LoginRequest(username="owner", password="a sufficiently long password"), Response(), db)
     assert signed_in["access_token"]
     active_user = get_current_user("Bearer " + signed_in["access_token"], db)
     assert active_user.username == "owner"
 
-    logout(active_user, db)
+    logout(Response(), active_user, db)
     with pytest.raises(HTTPException) as exc:
         get_current_user("Bearer " + signed_in["access_token"], db)
     assert exc.value.status_code == 401
@@ -115,6 +116,7 @@ def test_bootstrap_rejects_wrong_secret(monkeypatch):
     from sqlalchemy.orm import sessionmaker
     from sqlalchemy.pool import StaticPool
     from app.api.auth import BootstrapRequest, bootstrap_owner
+    from fastapi import Response
     from app.db.session import Base
     from app.db import models  # noqa: F401
 
@@ -124,7 +126,7 @@ def test_bootstrap_rejects_wrong_secret(monkeypatch):
     monkeypatch.setattr(settings, "AUTH_SECRET_KEY", "s" * 48)
     monkeypatch.setattr(settings, "AUTH_BOOTSTRAP_SECRET", "b" * 32)
     with pytest.raises(HTTPException) as exc:
-        bootstrap_owner(BootstrapRequest(username="owner", password="a sufficiently long password"), "wrong", db)
+        bootstrap_owner(BootstrapRequest(username="owner", password="a sufficiently long password"), Response(), "wrong", db)
     assert exc.value.status_code == 403
     assert db.query(__import__("app.db.models", fromlist=["UserModel"]).UserModel).count() == 0
     db.close()
