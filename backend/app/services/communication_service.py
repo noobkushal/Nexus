@@ -6,6 +6,7 @@ scheduling. Enforces human approval prior to any external transmission.
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
+from sqlalchemy.orm import Session
 
 from app.agents.orchestrator import orchestrator
 from app.core.logging import get_audit_logger, logger
@@ -23,7 +24,7 @@ from app.schemas.communication import (
     PriorityLevel,
     utc_now,
 )
-from app.services.approval_service import approval_service
+from app.services.approval_service import approval_service, canonical_payload
 
 audit_logger = get_audit_logger()
 
@@ -114,7 +115,7 @@ class CommunicationService:
         audit_logger.info(f"Email draft created: {email_id} to {email.recipient}")
         return email
 
-    def request_email_dispatch(self, email_id: str) -> EmailDraft:
+    def request_email_dispatch(self, email_id: str, owner_user_id: str, db: Session) -> EmailDraft:
         """Submits an email draft to the human approval gate."""
         email = self._emails.get(email_id)
         if not email:
@@ -127,15 +128,17 @@ class CommunicationService:
                 action_type=ActionType.EXTERNAL_MESSAGE,
                 title=f"Dispatch Email: '{email.subject[:50]}'",
                 description=f"Send email to '{email.recipient}' with priority '{email.priority.value}'.",
-                payload={"email_id": email.id, "recipient": email.recipient, "subject": email.subject},
-            )
+                payload={"email_id": email.id, "sender": email.sender, "recipient": email.recipient, "subject": email.subject, "body": email.body},
+            ),
+            requester_user_id=owner_user_id,
+            db=db,
         )
         email.status = CommunicationStatus.PENDING_APPROVAL
         email.approval_id = appr.id
         audit_logger.info(f"Email {email_id} queued for approval #{appr.id}")
         return email
 
-    def dispatch_email(self, email_id: str) -> DispatchResult:
+    def dispatch_email(self, email_id: str, owner_user_id: str, db: Session) -> DispatchResult:
         """Executes dispatch ONLY if explicitly approved by the human operator."""
         email = self._emails.get(email_id)
         if not email:
@@ -146,13 +149,18 @@ class CommunicationService:
                 f"Dispatch blocked: Email '{email_id}' has not been submitted for approval."
             )
 
-        appr = approval_service.get_approval(email.approval_id)
-        if not appr or appr.status != ApprovalStatus.APPROVED:
+        appr = approval_service.get_approval(email.approval_id, requester_user_id=owner_user_id, db=db)
+        expected_payload = {"email_id": email.id, "sender": email.sender, "recipient": email.recipient, "subject": email.subject, "body": email.body}
+        _, expected_hash = canonical_payload(expected_payload)
+        if not appr or appr.status != ApprovalStatus.APPROVED or appr.payload_hash != expected_hash:
             raise CommunicationSecurityError(
                 f"Dispatch blocked: Approval #{email.approval_id} is '{appr.status if appr else 'missing'}'. "
                 f"Human approval is mandatory before transmission."
             )
 
+        consumed = approval_service.consume_approval(email.approval_id, expected_hash, owner_user_id, db)
+        if not consumed:
+            raise CommunicationSecurityError("Dispatch blocked: approval is expired, already used, or no longer valid.")
         email.status = CommunicationStatus.DISPATCHED
         email.dispatched_at = utc_now()
 
@@ -196,7 +204,7 @@ class CommunicationService:
         audit_logger.info(f"Message draft created: {msg_id} ({draft_in.channel.value})")
         return msg
 
-    def request_message_dispatch(self, message_id: str) -> MessageDraft:
+    def request_message_dispatch(self, message_id: str, owner_user_id: str, db: Session) -> MessageDraft:
         msg = self._messages.get(message_id)
         if not msg:
             raise ValueError(f"Message draft '{message_id}' not found.")
@@ -207,14 +215,16 @@ class CommunicationService:
                 action_type=ActionType.EXTERNAL_MESSAGE,
                 title=f"Send {msg.channel.value.title()} Message to '{msg.recipient[:40]}'",
                 description=f"Outbound communication via {msg.channel.value}: '{msg.content[:80]}...'",
-                payload={"message_id": msg.id, "channel": msg.channel.value, "recipient": msg.recipient},
-            )
+                payload={"message_id": msg.id, "channel": msg.channel.value, "recipient": msg.recipient, "content": msg.content},
+            ),
+            requester_user_id=owner_user_id,
+            db=db,
         )
         msg.status = CommunicationStatus.PENDING_APPROVAL
         msg.approval_id = appr.id
         return msg
 
-    def dispatch_message(self, message_id: str) -> DispatchResult:
+    def dispatch_message(self, message_id: str, owner_user_id: str, db: Session) -> DispatchResult:
         msg = self._messages.get(message_id)
         if not msg:
             raise ValueError(f"Message draft '{message_id}' not found.")
@@ -222,13 +232,18 @@ class CommunicationService:
         if not msg.approval_id:
             raise CommunicationSecurityError("Dispatch blocked: Message has not been submitted for approval.")
 
-        appr = approval_service.get_approval(msg.approval_id)
-        if not appr or appr.status != ApprovalStatus.APPROVED:
+        appr = approval_service.get_approval(msg.approval_id, requester_user_id=owner_user_id, db=db)
+        expected_payload = {"message_id": msg.id, "channel": msg.channel.value, "recipient": msg.recipient, "content": msg.content}
+        _, expected_hash = canonical_payload(expected_payload)
+        if not appr or appr.status != ApprovalStatus.APPROVED or appr.payload_hash != expected_hash:
             raise CommunicationSecurityError(
                 f"Dispatch blocked: Approval status is '{appr.status if appr else 'missing'}'. "
                 f"Human approval required."
             )
 
+        consumed = approval_service.consume_approval(msg.approval_id, expected_hash, owner_user_id, db)
+        if not consumed:
+            raise CommunicationSecurityError("Dispatch blocked: approval is expired, already used, or no longer valid.")
         msg.status = CommunicationStatus.DISPATCHED
         msg.dispatched_at = utc_now()
 
