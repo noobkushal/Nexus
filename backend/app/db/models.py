@@ -27,6 +27,9 @@ class UserModel(Base):
     username = Column(String(100), unique=True, index=True, nullable=False)
     email = Column(String(255), unique=True, index=True, nullable=True)
     role = Column(String(50), default="operator", nullable=False)
+    password_hash = Column(String(255), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    token_version = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
 
