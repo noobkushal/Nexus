@@ -103,3 +103,40 @@ A feature is not production-ready until:
 - destructive operations have recovery tests;
 - logs are redacted;
 - documentation and threat-model notes are updated.
+
+
+## Phase 1 implementation contract
+
+### Authentication lifecycle
+- Persist owner identity and device/session records. Add password hash, active state, token version, and timestamps through a versioned migration.
+- Bootstrap the first owner through a one-time setup secret supplied out-of-band. Never ship default credentials or public self-registration.
+- Store only salted password hashes using a modern password-hashing implementation. Rate-limit login and bootstrap attempts.
+- Use short-lived signed access tokens with issuer, subject, issued-at, expiry, and token-version claims. Validate signature and expiry on every request.
+- Keep signing/bootstrap secrets in environment variables; fail closed in production if required secrets are absent or weak.
+- Logout/revocation increments token version. Deactivated users cannot authenticate or use existing tokens.
+
+### Initial role and scope baseline
+- **owner:** identity and policy administration, approvals, all explicitly permitted non-production operations.
+- **operator:** normal assistant operations, task/workspace management, and eligible approval decisions.
+- **auditor:** read-only access to permitted operational and audit records.
+
+Initial scope families: `identity:read/manage`, `tasks:read/write`, `agents:read/operate`, `storage:read/write/delete`, `approvals:read/decide`, `communications:draft/send`, `career:read/prepare_application/submit_application`, `deployment:prepare/production`, `integrations:manage`, and `audit:read`. Production deployment, outbound communications, and application submission remain approval-gated regardless of role. Agents use separate service identities and narrowly scoped grants; role names are not accepted from client payloads.
+
+### Approval record and state machine
+Persist: request ID, requester identity/type, action type, resource, canonical payload hash, human-readable preview, requested scopes, creation/expiry timestamps, status, reviewer identity, decision timestamp, execution timestamp, and immutable audit correlation ID.
+
+State transitions: `pending -> approved | rejected | expired`; approved requests may transition once to `consumed` or `failed`. Execution re-checks actor status, permissions, approval state, expiry, payload digest, resource ownership, and policy immediately before the side effect. A transaction claims the approval exactly once; automatic replay is forbidden. Any material payload change requires a new approval.
+
+### Required regression tests
+- No default credentials; bootstrap is one-time and secret-protected.
+- Invalid, expired, malformed, revoked, or wrong-signature tokens are rejected.
+- Disabled users and stale token versions are rejected.
+- Anonymous requests and lower-privilege roles cannot access protected/admin routes.
+- Agents cannot grant permissions, change roles, approve requests, or bypass policy.
+- Approval cannot be replayed, transferred to another payload/resource, or used after expiry.
+- Concurrent execution attempts produce at most one dispatch.
+- Outbound message, application submission, and production deployment remain blocked without valid, fresh human approval.
+- Password hashes, signing secrets, and tokens never appear in API output or logs.
+
+### Delivery and release gates
+Implement authentication, RBAC, approval persistence, and audit as small vertical slices. Protect every route server-side and enforce policy again at the tool execution boundary. Do not merge until backend tests, frontend production build, migration tests, and security regression tests pass. Enabling an integration does not bypass these gates.
