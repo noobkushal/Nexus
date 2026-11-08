@@ -45,6 +45,15 @@ The response contains a short-lived bearer access token. Store it only in a secu
 
 Do not store access tokens in browser localStorage. The frontend login/session integration is a separate delivery slice; until it is implemented, unauthenticated frontend API calls will receive HTTP 401.
 
+## Approval API behavior
+
+- `POST /api/v1/approvals` creates a persistent request owned by the authenticated user. The server canonicalizes the payload and returns its SHA-256 digest.
+- `GET /api/v1/approvals` and `GET /api/v1/approvals/{id}` return only requests owned by the authenticated user.
+- `POST /api/v1/approvals/{id}/decision` is owner-role-only. The decision must include the exact `payload_hash` shown in the request preview; only `approved` or `rejected` is accepted.
+- Requests expire after 15 minutes. Expired, altered, already-decided, or replayed requests cannot be approved again.
+- The internal `ApprovalService.consume_approval` method atomically claims an approved request once using the same payload digest. A real executor must call this only after rechecking actor permissions and policy immediately before dispatch. No external side effect is wired to this method yet.
+- Approval request and decision events are persisted in the append-only audit event table.
+
 ## Current scope and limitations
 
 - Passwords are stored as salted scrypt hashes; plaintext passwords are never persisted.
@@ -52,4 +61,4 @@ Do not store access tokens in browser localStorage. The frontend login/session i
 - Failed login attempts are rate-limited per username in the running backend process. A multi-worker deployment should move this limiter to a shared store.
 - Roles currently recognized by the authorization helper are `owner`, `operator`, and `auditor`. Role administration, granular per-resource scopes, MFA/passkeys, refresh-token rotation, durable device inventory, and distributed rate limiting are not yet implemented.
 - Existing legacy users without a password hash cannot log in; do not automatically promote them or assign a default password. Plan a controlled owner recovery/migration before enabling a pre-existing multi-user database.
-- This milestone does not yet make approvals durable or payload-bound; that is the next security-engine work after auth/RBAC review.
+- Approval records and decisions are now durable, expiring, payload-bound, owner-scoped, audited, and have an atomic one-time consumption primitive. The actual tool execution adapters still need to invoke the consumption gate and revalidate policy immediately before any side effect.
