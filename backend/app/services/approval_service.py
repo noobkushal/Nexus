@@ -150,4 +150,30 @@ class ApprovalService:
         return _response(row)
 
 
+    def consume_approval(self, approval_id: str, expected_payload_hash: str, owner_user_id: str, db: Session) -> Optional[ApprovalResponse]:
+        """Atomically consume an approved action exactly once at execution time."""
+        now = utc_now()
+        changed = db.query(ApprovalModel).filter(
+            ApprovalModel.id == approval_id,
+            ApprovalModel.requester_user_id == owner_user_id,
+            ApprovalModel.status == ApprovalStatus.APPROVED.value,
+            ApprovalModel.payload_hash == expected_payload_hash,
+            ApprovalModel.expires_at > now,
+        ).update({
+            "status": ApprovalStatus.CONSUMED.value,
+            "consumed_at": now,
+        }, synchronize_session=False)
+        row = db.query(ApprovalModel).filter(
+            ApprovalModel.id == approval_id,
+            ApprovalModel.requester_user_id == owner_user_id,
+        ).first()
+        if changed != 1:
+            db.rollback()
+            return None
+        _audit(db, owner_user_id, "approval.consumed", approval_id, expected_payload_hash, {})
+        db.commit()
+        db.refresh(row)
+        return _response(row)
+
+
 approval_service = ApprovalService()
