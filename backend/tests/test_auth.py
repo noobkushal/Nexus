@@ -36,7 +36,7 @@ def test_token_tampering_is_rejected(monkeypatch):
     monkeypatch.setattr(settings, "AUTH_SECRET_KEY", "x" * 48)
     token = auth.create_access_token(SimpleNamespace(id="owner-1", token_version=0))
     parts = token.split(".")
-    parts[1] = parts[1][:-1] + ("A" if parts[1][-1] != "A" else "B")
+    parts[2] = ("A" if parts[2][0] != "A" else "B") + parts[2][1:]
     with pytest.raises(HTTPException) as exc:
         auth.decode_access_token(".".join(parts))
     assert exc.value.status_code == 401
@@ -65,4 +65,14 @@ def test_malformed_token_is_rejected(monkeypatch):
     monkeypatch.setattr(settings, "AUTH_SECRET_KEY", "x" * 48)
     with pytest.raises(HTTPException) as exc:
         auth.decode_access_token("not-a-token")
+    assert exc.value.status_code == 401
+
+
+def test_expired_token_is_rejected(monkeypatch):
+    monkeypatch.setattr(settings, "AUTH_SECRET_KEY", "x" * 48)
+    monkeypatch.setattr(settings, "ACCESS_TOKEN_TTL_MINUTES", 1)
+    token = auth.create_access_token(SimpleNamespace(id="owner-1", token_version=0))
+    monkeypatch.setattr(auth.time, "time", lambda: 4_000_000_000)
+    with pytest.raises(HTTPException) as exc:
+        auth.decode_access_token(token)
     assert exc.value.status_code == 401
