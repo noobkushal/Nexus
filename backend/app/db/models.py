@@ -155,3 +155,17 @@ class AuditEventModel(Base):
     payload_hash = Column(String(64), nullable=True)
     details_json = Column(Text, nullable=False, default="{}")
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
+
+
+class WorkflowExecutionModel(Base):
+    """Durable owner-scoped record of an n8n webhook dispatch."""
+    __tablename__ = "workflow_executions"
+
+    id = Column(String(64), primary_key=True, index=True)
+    owner_id = Column(String(64), ForeignKey("users.id"), nullable=False, index=True)
+    workflow_id = Column(String(100), nullable=False, index=True)
+    status = Column(String(20), nullable=False, index=True)
+    triggered_at = Column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    payload_json = Column(Text, nullable=False, default="{}")
+    result_json = Column(Text, nullable=True)

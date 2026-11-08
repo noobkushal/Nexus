@@ -1,13 +1,18 @@
-"""Real n8n webhook dispatch with honest execution outcomes."""
+"""Persistent n8n webhook dispatch with honest execution outcomes."""
+import json
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlsplit
+
 import httpx
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+
 from app.core.config import settings
 from app.core.logging import logger
+from app.db.models import WorkflowExecutionModel
 
 
 def utc_now() -> datetime:
@@ -47,12 +52,23 @@ class WorkflowExecution(BaseModel):
     result: Optional[Dict[str, Any]] = None
 
 
+def _to_execution(row: WorkflowExecutionModel) -> WorkflowExecution:
+    return WorkflowExecution(
+        execution_id=row.id,
+        workflow_id=row.workflow_id,
+        status=ExecutionStatus(row.status),
+        triggered_at=row.triggered_at,
+        completed_at=row.completed_at,
+        payload=json.loads(row.payload_json or "{}"),
+        result=json.loads(row.result_json) if row.result_json else None,
+    )
+
+
 class WorkflowService:
-    """Dispatches registered workflows to a configured n8n webhook; never simulates success."""
+    """Dispatches registered workflows and stores every outcome in the owner database."""
 
     def __init__(self):
         self._workflows: Dict[str, WorkflowDefinition] = {}
-        self._executions: List[WorkflowExecution] = []
         self._seed_workflows()
 
     def _seed_workflows(self):
@@ -70,10 +86,18 @@ class WorkflowService:
     def get_workflow(self, workflow_id: str) -> Optional[WorkflowDefinition]:
         return self._workflows.get(workflow_id)
 
-    def list_executions(self, limit: int = 15) -> List[WorkflowExecution]:
-        return sorted(self._executions, key=lambda e: e.triggered_at, reverse=True)[:limit]
+    def list_executions(self, owner_id: str, db: Session, limit: int = 15) -> List[WorkflowExecution]:
+        safe_limit = max(1, min(limit, 100))
+        rows = (db.query(WorkflowExecutionModel)
+            .filter(WorkflowExecutionModel.owner_id == owner_id)
+            .order_by(WorkflowExecutionModel.triggered_at.desc())
+            .limit(safe_limit).all())
+        return [_to_execution(row) for row in rows]
 
-    async def trigger_workflow(self, workflow_id: str, payload: Optional[Dict[str, Any]] = None) -> WorkflowExecution:
+    async def trigger_workflow(
+        self, workflow_id: str, payload: Optional[Dict[str, Any]] = None,
+        owner_id: Optional[str] = None, db: Optional[Session] = None,
+    ) -> WorkflowExecution:
         workflow = self.get_workflow(workflow_id)
         if not workflow:
             raise ValueError(f"Workflow '{workflow_id}' does not exist.")
@@ -87,39 +111,48 @@ class WorkflowService:
             raise RuntimeError("N8N_WEBHOOK_URL must be an absolute HTTP(S) URL without embedded credentials.")
         if parsed.scheme != "https" and parsed.hostname not in ("localhost", "127.0.0.1", "::1"):
             raise RuntimeError("Remote n8n endpoints must use HTTPS.")
+        if not owner_id or db is None:
+            raise RuntimeError("Workflow dispatch requires an authenticated owner and persistent database session.")
 
-        execution = WorkflowExecution(
-            execution_id=str(uuid.uuid4()), workflow_id=workflow_id,
-            status=ExecutionStatus.RUNNING, payload=payload or {},
+        execution_id = str(uuid.uuid4())
+        triggered_at = utc_now()
+        stored_payload = payload or {}
+        row = WorkflowExecutionModel(
+            id=execution_id, owner_id=owner_id, workflow_id=workflow_id,
+            status=ExecutionStatus.RUNNING.value, triggered_at=triggered_at,
+            payload_json=json.dumps(stored_payload, sort_keys=True, separators=(",", ":")),
         )
-        self._executions.append(execution)
+        db.add(row)
+        db.commit()
         target = base.rstrip("/") + (workflow.webhook_path or "")
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(20.0), follow_redirects=False) as client:
                 response = await client.post(target, json={
-                    "execution_id": execution.execution_id,
+                    "execution_id": execution_id,
                     "workflow_id": workflow_id,
-                    "triggered_at": execution.triggered_at.isoformat(),
-                    "payload": payload or {},
+                    "triggered_at": triggered_at.isoformat(),
+                    "payload": stored_payload,
                 })
                 response.raise_for_status()
-            execution.status = ExecutionStatus.SUCCESS
-            execution.result = {
+            row.status = ExecutionStatus.SUCCESS.value
+            row.result_json = json.dumps({
                 "message": f"n8n accepted workflow '{workflow.name}'.",
                 "http_status": response.status_code,
                 "target_webhook": target,
-            }
+            }, sort_keys=True)
         except httpx.HTTPError as exc:
-            execution.status = ExecutionStatus.FAILED
-            execution.result = {
+            row.status = ExecutionStatus.FAILED.value
+            row.result_json = json.dumps({
                 "message": "n8n webhook dispatch failed; no successful execution is claimed.",
                 "error": type(exc).__name__,
                 "target_webhook": target,
-            }
+            }, sort_keys=True)
             logger.warning("Workflow dispatch failed for %s: %s", workflow_id, type(exc).__name__)
         finally:
-            execution.completed_at = utc_now()
-        return execution
+            row.completed_at = utc_now()
+            db.commit()
+            db.refresh(row)
+        return _to_execution(row)
 
 
 workflow_service = WorkflowService()

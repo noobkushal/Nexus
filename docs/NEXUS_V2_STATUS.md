@@ -11,7 +11,7 @@
 
 ## Incomplete
 
-- Workflow execution history is process-local, not durable.
+- Workflow executions are now persisted in the database and scoped to the authenticated owner.
 - Legacy tasks without an owner remain inaccessible until an explicit migration assigns ownership.
 - The Windows companion is not registered with the backend and has no remote relay.
 - Android access, browser automation, full desktop control, and device revocation are not implemented.

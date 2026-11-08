@@ -9,7 +9,9 @@ $TokenFile = Join-Path $StateDir "companion.token"
 New-Item -ItemType Directory -Force -Path $StateDir | Out-Null
 if (-not (Test-Path $TokenFile)) {
     $Bytes = New-Object byte[] 48
-    [Security.Cryptography.RandomNumberGenerator]::Fill($Bytes)
+    $Rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+    $Rng.GetBytes($Bytes)
+    $Rng.Dispose()
     $Token = [Convert]::ToBase64String($Bytes).TrimEnd("=").Replace("+", "-").Replace("/", "_")
     [IO.File]::WriteAllText($TokenFile, $Token, [Text.Encoding]::ASCII)
     $Identity = [Security.Principal.WindowsIdentity]::GetCurrent().Name

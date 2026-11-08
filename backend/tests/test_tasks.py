@@ -69,7 +69,7 @@ async def test_workflow_requires_real_n8n_configuration(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_workflow_never_claims_success_when_webhook_fails(monkeypatch):
+async def test_workflow_never_claims_success_when_webhook_fails(monkeypatch, test_database):
     import httpx
     from app.core.config import settings
     from app.services.workflow_service import WorkflowService, ExecutionStatus
@@ -84,6 +84,41 @@ async def test_workflow_never_claims_success_when_webhook_fails(monkeypatch):
             httpx.Response(500, request=request).raise_for_status()
 
     monkeypatch.setattr(httpx, "AsyncClient", FailedClient)
-    execution = await WorkflowService().trigger_workflow("daily_briefing")
+    factory, owner = test_database
+    with factory() as db:
+        execution = await WorkflowService().trigger_workflow("daily_briefing", owner_id=owner.id, db=db)
+        from app.db.models import WorkflowExecutionModel
+        persisted = db.query(WorkflowExecutionModel).filter_by(id=execution.execution_id, owner_id=owner.id).one()
+        assert persisted.status == "failed"
     assert execution.status == ExecutionStatus.FAILED
     assert execution.result["message"].startswith("n8n webhook dispatch failed")
+
+
+
+@pytest.mark.asyncio
+async def test_workflow_success_is_persisted_and_owner_scoped(monkeypatch, test_database):
+    import httpx
+    from app.core.config import settings
+    from app.services.workflow_service import WorkflowService, ExecutionStatus
+    from app.db.models import WorkflowExecutionModel
+
+    monkeypatch.setattr(settings, "N8N_WEBHOOK_URL", "http://127.0.0.1:5678")
+    class SuccessfulClient:
+        def __init__(self, **kwargs): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): return None
+        async def post(self, url, json):
+            return httpx.Response(200, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(httpx, "AsyncClient", SuccessfulClient)
+    factory, owner = test_database
+    with factory() as db:
+        service = WorkflowService()
+        execution = await service.trigger_workflow("daily_briefing", {"source": "test"}, owner.id, db)
+        assert execution.status == ExecutionStatus.SUCCESS
+        assert service.list_executions(owner.id, db)[0].execution_id == execution.execution_id
+        assert db.query(WorkflowExecutionModel).filter_by(owner_id=owner.id).count() == 1
+        other = UserModel(id=str(uuid.uuid4()), username="workflow-other", role="owner", is_active=True, token_version=0)
+        db.add(other)
+        db.commit()
+        assert service.list_executions(other.id, db) == []
