@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { Bot, Shield, CheckCircle2, AlertTriangle, Key, Cpu, Sparkles, Lock } from "lucide-react";
@@ -30,8 +32,8 @@ export default function AgentsPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch("http://127.0.0.1:8000/api/v1/agents").then((r) => r.json()),
-      fetch("http://127.0.0.1:8000/api/v1/skills").then((r) => r.json()),
+      apiFetch("http://127.0.0.1:8000/api/v1/agents").then((r) => r.json()),
+      apiFetch("http://127.0.0.1:8000/api/v1/skills").then((r) => r.json()),
     ])
       .then(([agentsData, skillsData]) => {
         if (Array.isArray(agentsData)) setAgents(agentsData);
