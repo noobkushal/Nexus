@@ -39,7 +39,7 @@ class BriefingService:
         model_name = getattr(active_provider, "model_name", "nexus-mock-engine-v1")
 
         # 2. Tasks Summary
-        all_tasks = task_service.list_tasks()
+        all_tasks = task_service.list_tasks(owner_user_id, db)
         pending_tasks = [t for t in all_tasks if t.status in (TaskStatus.PENDING, TaskStatus.IN_PROGRESS)]
         high_priority_tasks = [t for t in pending_tasks if t.priority in (TaskPriority.HIGH, TaskPriority.CRITICAL)]
 
@@ -181,7 +181,7 @@ class BriefingService:
             })
 
         # 2. Urgent / High priority tasks
-        all_tasks = task_service.list_tasks()
+        all_tasks = task_service.list_tasks(owner_user_id, db)
         for t in all_tasks:
             if t.status in (TaskStatus.PENDING, TaskStatus.IN_PROGRESS) and t.priority in (TaskPriority.HIGH, TaskPriority.CRITICAL):
                 reminders.append({
