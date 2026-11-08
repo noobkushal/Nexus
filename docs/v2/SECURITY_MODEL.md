@@ -140,3 +140,10 @@ State transitions: `pending -> approved | rejected | expired`; approved requests
 
 ### Delivery and release gates
 Implement authentication, RBAC, approval persistence, and audit as small vertical slices. Protect every route server-side and enforce policy again at the tool execution boundary. Do not merge until backend tests, frontend production build, migration tests, and security regression tests pass. Enabling an integration does not bypass these gates.
+
+
+## Current V2 enforcement boundary (2026-11-08)
+
+The current application is intentionally running in **single-owner mode**. Every personal-data product router requires the authenticated owner role. Health and authentication/bootstrap endpoints remain separately available. This is a temporary fail-closed boundary because several legacy data models and services do not yet carry and enforce per-resource owner IDs. Do not create operator/auditor accounts or expose the API to multiple users until resource ownership, scoped queries, and cross-owner tests are implemented.
+
+The role/scope matrix above is the target design, not a claim that multi-role authorization is already complete. The current approval-decision endpoint is owner-only. The owner can review approval requests created by a different requester; the decision is recorded against the actual reviewer identity. The owner-only API boundary will be relaxed only after per-resource authorization is complete and tested.
