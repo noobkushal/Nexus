@@ -3,7 +3,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from app.api.auth import router as auth_router\nfrom app.core.auth import require_authenticated_user\nfrom app.api.agents import router as agents_router
+from app.api.auth import router as auth_router
+from app.core.auth import require_authenticated_user
+from app.api.agents import router as agents_router
 from app.api.approvals import router as approvals_router
 from app.api.briefings import router as briefings_router
 from app.api.career import router as career_router
