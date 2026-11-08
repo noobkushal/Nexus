@@ -5,6 +5,7 @@ from app.core.logging import logger
 from app.providers.base import BaseLLMProvider, ProviderStatus
 from app.providers.mock_provider import MockProvider
 from app.providers.ollama_provider import OllamaProvider
+from app.providers.openai_compatible import OpenAICompatibleProvider
 
 
 class ProviderRegistry:
@@ -12,20 +13,39 @@ class ProviderRegistry:
 
     def __init__(self):
         self._providers: Dict[str, BaseLLMProvider] = {}
-        # Always register the deterministic mock provider first
         self.register_provider(MockProvider())
-        # Register optional Ollama provider (does not execute or block at startup)
         self.register_provider(OllamaProvider())
-        # Default active provider is always 'mock' for standalone safety
-        self._active_provider_name: str = settings.DEFAULT_PROVIDER if settings.DEFAULT_PROVIDER in ["mock"] else "mock"
+
+        # Register a real OpenAI-compatible endpoint only when explicitly configured.
+        if settings.OPENAI_COMPAT_BASE_URL and settings.OPENAI_COMPAT_MODEL:
+            try:
+                self.register_provider(
+                    OpenAICompatibleProvider(
+                        base_url=settings.OPENAI_COMPAT_BASE_URL,
+                        model_name=settings.OPENAI_COMPAT_MODEL,
+                        api_key=settings.OPENAI_COMPAT_API_KEY,
+                        timeout=settings.OPENAI_COMPAT_TIMEOUT_SECONDS,
+                    )
+                )
+            except ValueError as exc:
+                logger.error(f"OpenAI-compatible provider configuration rejected: {exc}")
+
+        requested_default = settings.DEFAULT_PROVIDER
+        self._active_provider_name = (
+            requested_default if requested_default in self._providers else "mock"
+        )
+        if requested_default != self._active_provider_name:
+            logger.warning(
+                f"Configured provider '{requested_default}' is unavailable; using safe mock provider."
+            )
 
     def register_provider(self, provider: BaseLLMProvider) -> None:
-        """Registers a new provider."""
+        """Registers a provider under its unique name."""
         self._providers[provider.name] = provider
         logger.info(f"Registered AI provider: {provider.name} (is_mock={provider.is_mock})")
 
     def get_provider(self, name: Optional[str] = None) -> BaseLLMProvider:
-        """Retrieves a provider by name, or falls back to active provider or mock."""
+        """Retrieves a provider; unknown names fail closed to mock."""
         target_name = name or self._active_provider_name
         if target_name in self._providers:
             return self._providers[target_name]
@@ -50,8 +70,7 @@ class ProviderRegistry:
         statuses: List[ProviderStatus] = []
         for provider in self._providers.values():
             try:
-                status = await provider.check_status()
-                statuses.append(status)
+                statuses.append(await provider.check_status())
             except Exception as exc:
                 statuses.append(
                     ProviderStatus(
@@ -64,5 +83,4 @@ class ProviderRegistry:
         return statuses
 
 
-# Global singleton provider registry
 provider_registry = ProviderRegistry()
