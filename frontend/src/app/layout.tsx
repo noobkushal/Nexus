@@ -1,6 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import Sidebar from "@/components/Sidebar";
+import AuthGate from "@/components/AuthGate";
 
 export const metadata: Metadata = {
   title: "NEXUS AI — Personal AI Operating System",
@@ -15,10 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="bg-nexus-950 text-nexus-100 min-h-screen antialiased flex">
-        <Sidebar />
-        <div className="flex-1 ml-64 flex flex-col min-h-screen">
-          {children}
-        </div>
+        <AuthGate>{children}</AuthGate>
       </body>
     </html>
   );
