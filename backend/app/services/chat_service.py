@@ -2,6 +2,7 @@
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
+from sqlalchemy.orm import Session
 from app.agents.graph import agent_graph
 from app.core.logging import get_audit_logger, logger
 from app.providers.base import ChatMessage, MessageRole
@@ -41,7 +42,7 @@ class ChatService:
     def get_conversation_history(self, conversation_id: str) -> List[ChatMessageSchema]:
         return self._conversations.get(conversation_id, [])
 
-    async def process_chat(self, request: ChatRequest) -> ChatResponse:
+    async def process_chat(self, request: ChatRequest, owner_user_id: str, db: Session) -> ChatResponse:
         cid = self.get_or_create_conversation(request.conversation_id)
 
         # Record user message
@@ -59,6 +60,8 @@ class ChatService:
         graph_result = await agent_graph.execute(
             user_prompt=request.message,
             conversation_id=cid,
+            owner_user_id=owner_user_id,
+            db=db,
         )
 
         # Record assistant reply
