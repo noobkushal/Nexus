@@ -3,7 +3,7 @@ import secrets
 import uuid
 import time
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -30,7 +30,7 @@ def _public_user(user: UserModel) -> dict:
     return {"id": user.id, "username": user.username, "role": user.role, "created_at": user.created_at}
 
 @router.post("/bootstrap", status_code=status.HTTP_201_CREATED)
-def bootstrap_owner(request: BootstrapRequest, bootstrap_secret: str = Header("", alias="X-Nexus-Bootstrap-Secret"), db: Session = Depends(get_db)):
+def bootstrap_owner(request: BootstrapRequest, bootstrap_secret: str = Header("", alias="X-Nexus-Bootstrap-Secret"), db: Session = Depends(get_db), response: Response = None):
     _signing_key()  # Fail before creating the owner if token signing is not configured.
     configured = settings.AUTH_BOOTSTRAP_SECRET
     if not configured or len(configured) < 24 or not secrets.compare_digest(bootstrap_secret, configured):
@@ -43,10 +43,13 @@ def bootstrap_owner(request: BootstrapRequest, bootstrap_secret: str = Header(""
     db.add(user)
     db.commit()
     db.refresh(user)
-    return {"user": _public_user(user), "access_token": create_access_token(user), "token_type": "bearer", "expires_in": settings.ACCESS_TOKEN_TTL_MINUTES * 60}
+    token = create_access_token(user)
+    if response is not None:
+        response.set_cookie(key="nexus_access_token", value=token, httponly=True, secure=settings.ENVIRONMENT.lower() == "production", samesite="lax", max_age=settings.ACCESS_TOKEN_TTL_MINUTES * 60, path="/")
+    return {"user": _public_user(user), "access_token": token, "token_type": "bearer", "expires_in": settings.ACCESS_TOKEN_TTL_MINUTES * 60}
 
 @router.post("/login")
-def login(request: LoginRequest, db: Session = Depends(get_db)):
+def login(request: LoginRequest, db: Session = Depends(get_db), response: Response = None):
     key = request.username.casefold()
     now = time.monotonic()
     attempts = [stamp for stamp in _LOGIN_FAILURES.get(key, []) if now - stamp < _LOGIN_WINDOW_SECONDS]
@@ -58,15 +61,20 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
         _LOGIN_FAILURES[key] = attempts
         raise HTTPException(status_code=401, detail="Invalid username or password.", headers={"WWW-Authenticate": "Bearer"})
     _LOGIN_FAILURES.pop(key, None)
-    return {"user": _public_user(user), "access_token": create_access_token(user), "token_type": "bearer", "expires_in": settings.ACCESS_TOKEN_TTL_MINUTES * 60}
+    token = create_access_token(user)
+    if response is not None:
+        response.set_cookie(key="nexus_access_token", value=token, httponly=True, secure=settings.ENVIRONMENT.lower() == "production", samesite="lax", max_age=settings.ACCESS_TOKEN_TTL_MINUTES * 60, path="/")
+    return {"user": _public_user(user), "access_token": token, "token_type": "bearer", "expires_in": settings.ACCESS_TOKEN_TTL_MINUTES * 60}
 
 @router.get("/me")
 def who_am_i(user: UserModel = Depends(get_current_user)):
     return _public_user(user)
 
 @router.post("/logout")
-def logout(user: UserModel = Depends(get_current_user), db: Session = Depends(get_db)):
+def logout(user: UserModel = Depends(get_current_user), db: Session = Depends(get_db), response: Response = None):
     user.token_version += 1
     db.add(user)
     db.commit()
+    if response is not None:
+        response.delete_cookie(key="nexus_access_token", path="/", httponly=True, secure=settings.ENVIRONMENT.lower() == "production", samesite="lax")
     return {"status": "logged_out"}
