@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useState } from "react";
 import Header from "@/components/Header";
 import { Send, Bot, User, ShieldAlert, Sparkles, ChevronDown, ChevronRight, Activity, GitFork } from "lucide-react";
@@ -51,7 +53,7 @@ export default function ChatPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/v1/chat", {
+      const res = await apiFetch("http://127.0.0.1:8000/api/v1/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
