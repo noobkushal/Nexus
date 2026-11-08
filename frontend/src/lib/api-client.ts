@@ -3,7 +3,7 @@
 /** Browser API helper: send the HttpOnly session cookie and keep API calls same-site. */
 export const getApiBase = () => {
   const configured = process.env.NEXT_PUBLIC_API_BASE_URL;
-  if (configured) return configured.replace(/\\/$/, "");
+  if (configured) return configured.endsWith("/") ? configured.slice(0, -1) : configured;
   if (typeof window === "undefined") return "http://127.0.0.1:8000";
   return `http://${window.location.hostname}:8000`;
 };
