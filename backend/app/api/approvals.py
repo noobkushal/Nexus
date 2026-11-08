@@ -1,6 +1,7 @@
 """Action Approval API Endpoints (Human-in-the-Loop Barrier)."""
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, status, Depends
+from app.core.auth import require_roles
 from app.schemas.approval import (
     ApprovalDecision,
     ApprovalRequestCreate,
@@ -39,7 +40,7 @@ async def get_approval(approval_id: str) -> ApprovalResponse:
 
 
 @router.post("/{approval_id}/decision", response_model=ApprovalResponse)
-async def submit_approval_decision(approval_id: str, decision: ApprovalDecision) -> ApprovalResponse:
+async def submit_approval_decision(approval_id: str, decision: ApprovalDecision, reviewer=Depends(require_roles("owner"))) -> ApprovalResponse:
     """Submits human review decision (approved or rejected)."""
     updated = approval_service.decide_approval(approval_id, decision)
     if not updated:
