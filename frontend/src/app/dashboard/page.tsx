@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import Link from "next/link";
@@ -108,13 +110,13 @@ export default function DashboardPage() {
   const loadAll = async () => {
     try {
       const [hRes, aRes, tRes, actRes, appRes, bRes, rRes] = await Promise.all([
-        fetch("http://127.0.0.1:8000/api/v1/health"),
-        fetch("http://127.0.0.1:8000/api/v1/agents"),
-        fetch("http://127.0.0.1:8000/api/v1/tasks"),
-        fetch("http://127.0.0.1:8000/api/v1/agents/activities"),
-        fetch("http://127.0.0.1:8000/api/v1/approvals?status=pending"),
-        fetch("http://127.0.0.1:8000/api/v1/briefings/latest"),
-        fetch("http://127.0.0.1:8000/api/v1/briefings/reminders"),
+        apiFetch("http://127.0.0.1:8000/api/v1/health"),
+        apiFetch("http://127.0.0.1:8000/api/v1/agents"),
+        apiFetch("http://127.0.0.1:8000/api/v1/tasks"),
+        apiFetch("http://127.0.0.1:8000/api/v1/agents/activities"),
+        apiFetch("http://127.0.0.1:8000/api/v1/approvals?status=pending"),
+        apiFetch("http://127.0.0.1:8000/api/v1/briefings/latest"),
+        apiFetch("http://127.0.0.1:8000/api/v1/briefings/reminders"),
       ]);
 
       if (hRes.ok) setHealth(await hRes.json());
@@ -137,13 +139,13 @@ export default function DashboardPage() {
   const handleGenerateBriefing = async () => {
     setGeneratingBriefing(true);
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/v1/briefings/generate", {
+      const res = await apiFetch("http://127.0.0.1:8000/api/v1/briefings/generate", {
         method: "POST",
       });
       if (res.ok) {
         const data = await res.json();
         setBriefing(data);
-        const rRes = await fetch("http://127.0.0.1:8000/api/v1/briefings/reminders");
+        const rRes = await apiFetch("http://127.0.0.1:8000/api/v1/briefings/reminders");
         if (rRes.ok) setReminders(await rRes.json());
       }
     } catch (err) {
@@ -168,7 +170,7 @@ export default function DashboardPage() {
     const approval = approvals.find((item) => item.id === id);
     if (!approval?.payload_hash) return;
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/v1/approvals/${id}/decision`, {
+      const res = await apiFetch(`http://127.0.0.1:8000/api/v1/approvals/${id}/decision`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ decision, payload_hash: approval.payload_hash }),
