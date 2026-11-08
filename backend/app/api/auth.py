@@ -1,6 +1,7 @@
 """Owner bootstrap, login, session inspection, and logout endpoints."""
 import secrets
 import uuid
+import time
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field
@@ -12,6 +13,10 @@ from app.db.models import UserModel
 from app.db.session import get_db
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
+_LOGIN_FAILURES = {}
+_LOGIN_WINDOW_SECONDS = 900
+_LOGIN_MAX_FAILURES = 10
+
 
 class BootstrapRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=64, pattern=r"^[a-zA-Z0-9_.-]+$")
@@ -42,9 +47,17 @@ def bootstrap_owner(request: BootstrapRequest, bootstrap_secret: str = Header(""
 
 @router.post("/login")
 def login(request: LoginRequest, db: Session = Depends(get_db)):
+    key = request.username.casefold()
+    now = time.monotonic()
+    attempts = [stamp for stamp in _LOGIN_FAILURES.get(key, []) if now - stamp < _LOGIN_WINDOW_SECONDS]
+    if len(attempts) >= _LOGIN_MAX_FAILURES:
+        raise HTTPException(status_code=429, detail="Too many login attempts. Try again later.")
     user = db.query(UserModel).filter(UserModel.username == request.username).first()
     if not user or not user.is_active or not user.password_hash or not verify_password(request.password, user.password_hash):
+        attempts.append(now)
+        _LOGIN_FAILURES[key] = attempts
         raise HTTPException(status_code=401, detail="Invalid username or password.", headers={"WWW-Authenticate": "Bearer"})
+    _LOGIN_FAILURES.pop(key, None)
     return {"user": _public_user(user), "access_token": create_access_token(user), "token_type": "bearer", "expires_in": settings.ACCESS_TOKEN_TTL_MINUTES * 60}
 
 @router.get("/me")
