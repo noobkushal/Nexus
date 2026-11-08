@@ -1,6 +1,7 @@
 """Centralized Application Configuration."""
 from pathlib import Path
 from typing import List, Optional
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -38,7 +39,7 @@ class Settings(BaseSettings):
     # Authentication: set both secrets through the environment before enabling login.
     AUTH_SECRET_KEY: Optional[str] = None
     AUTH_BOOTSTRAP_SECRET: Optional[str] = None
-    ACCESS_TOKEN_TTL_MINUTES: int = 20
+    ACCESS_TOKEN_TTL_MINUTES: int = Field(default=20, ge=1, le=120)
 
     # Storage Paths
     STORAGE_DIR: Path = DEFAULT_STORAGE_DIR
