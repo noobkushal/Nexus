@@ -27,6 +27,7 @@ export default function WorkflowsPage() {
   const [workflows, setWorkflows] = useState<WorkflowItem[]>([]);
   const [executions, setExecutions] = useState<ExecutionItem[]>([]);
   const [triggering, setTriggering] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const loadData = async () => {
     try {
@@ -48,6 +49,7 @@ export default function WorkflowsPage() {
   const triggerWorkflow = async (workflowId: string) => {
     try {
       setTriggering(workflowId);
+      setActionError(null);
       const res = await apiFetch(`http://127.0.0.1:8000/api/v1/workflows/${workflowId}/trigger`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -55,6 +57,9 @@ export default function WorkflowsPage() {
       });
       if (res.ok) {
         await loadData();
+      } else {
+        const detail = await res.json().catch(() => ({}));
+        setActionError(detail.detail || `Workflow dispatch failed (${res.status}). Configure n8n and check its webhook.`);
       }
     } catch (err) {
       console.error("Failed to trigger workflow", err);
@@ -78,11 +83,11 @@ export default function WorkflowsPage() {
               <div className="text-sm font-semibold text-nexus-100 flex items-center gap-2">
                 <span>n8n Integration Architecture</span>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-nexus-800 text-nexus-300 border border-nexus-700">
-                  STANDALONE SIMULATOR
+                  LIVE WEBHOOK
                 </span>
               </div>
               <p className="text-xs text-nexus-400">
-                Trigger simulated workflow runs without requiring an active n8n instance.
+                Dispatches real webhook requests to your configured n8n instance. No simulated success.
               </p>
             </div>
           </div>
@@ -94,6 +99,8 @@ export default function WorkflowsPage() {
             Refresh
           </button>
         </div>
+
+        {actionError && <div role="alert" className="p-3 rounded-lg border border-rose-800 bg-rose-950/40 text-xs text-rose-300">{actionError}</div>}
 
         {/* Workflow Catalog */}
         <div className="space-y-4">
@@ -127,7 +134,7 @@ export default function WorkflowsPage() {
                   className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold text-xs transition-colors shadow-md shadow-indigo-600/20"
                 >
                   <Play className={`w-3.5 h-3.5 ${triggering === wf.id ? "animate-spin" : ""}`} />
-                  {triggering === wf.id ? "Triggering..." : "Simulate Trigger"}
+                  {triggering === wf.id ? "Triggering..." : "Trigger Workflow"}
                 </button>
               </div>
             ))}
