@@ -57,3 +57,33 @@ async def test_task_ids_are_owner_scoped(test_database):
             app.dependency_overrides.pop(get_current_user, None)
         else:
             app.dependency_overrides[get_current_user] = original
+
+
+@pytest.mark.asyncio
+async def test_workflow_requires_real_n8n_configuration(monkeypatch):
+    from app.core.config import settings
+    from app.services.workflow_service import WorkflowService
+    monkeypatch.setattr(settings, "N8N_WEBHOOK_URL", None)
+    with pytest.raises(RuntimeError, match="n8n is not configured"):
+        await WorkflowService().trigger_workflow("daily_briefing")
+
+
+@pytest.mark.asyncio
+async def test_workflow_never_claims_success_when_webhook_fails(monkeypatch):
+    import httpx
+    from app.core.config import settings
+    from app.services.workflow_service import WorkflowService, ExecutionStatus
+    monkeypatch.setattr(settings, "N8N_WEBHOOK_URL", "http://127.0.0.1:5678")
+
+    class FailedClient:
+        def __init__(self, **kwargs): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): return None
+        async def post(self, url, json):
+            request = httpx.Request("POST", url)
+            httpx.Response(500, request=request).raise_for_status()
+
+    monkeypatch.setattr(httpx, "AsyncClient", FailedClient)
+    execution = await WorkflowService().trigger_workflow("daily_briefing")
+    assert execution.status == ExecutionStatus.FAILED
+    assert execution.result["message"].startswith("n8n webhook dispatch failed")
