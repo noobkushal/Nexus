@@ -20,7 +20,7 @@ interface ExecutionItem {
   workflow_id: string;
   status: string;
   triggered_at: string;
-  result?: { message: string; note: string; target_webhook: string };
+  result?: { message: string; error?: string; http_status?: number; target_webhook?: string };
 }
 
 export default function WorkflowsPage() {
@@ -134,7 +134,7 @@ export default function WorkflowsPage() {
                   className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold text-xs transition-colors shadow-md shadow-indigo-600/20"
                 >
                   <Play className={`w-3.5 h-3.5 ${triggering === wf.id ? "animate-spin" : ""}`} />
-                  {triggering === wf.id ? "Triggering..." : "Trigger Workflow"}
+                  {triggering === wf.id ? "Dispatching..." : "Trigger Workflow"}
                 </button>
               </div>
             ))}
@@ -153,7 +153,7 @@ export default function WorkflowsPage() {
 
           {executions.length === 0 ? (
             <p className="text-xs text-nexus-500 py-4 text-center">
-              No executions yet. Click &quot;Simulate Trigger&quot; above to run a workflow.
+              No executions yet. Configure n8n and trigger a registered webhook to begin.
             </p>
           ) : (
             <div className="space-y-2 font-mono text-xs">
@@ -167,14 +167,15 @@ export default function WorkflowsPage() {
                       <span className="text-cyan-400 font-bold">{exec.workflow_id}</span>
                       <span className="text-nexus-500">#{exec.execution_id}</span>
                     </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-900 uppercase">
+                    <span className={`text-[10px] px-2 py-0.5 rounded border uppercase ${exec.status === "success" ? "bg-emerald-950 text-emerald-400 border-emerald-900" : exec.status === "failed" ? "bg-rose-950 text-rose-300 border-rose-900" : "bg-amber-950 text-amber-300 border-amber-900"}`}>
                       {exec.status}
                     </span>
                   </div>
                   {exec.result && (
                     <div className="text-[10px] text-nexus-400 pt-1">
                       <div>&bull; {exec.result.message}</div>
-                      <div className="text-nexus-500">&bull; {exec.result.note}</div>
+                      {exec.result.error && <div className="text-rose-300">&bull; {exec.result.error}</div>}
+                      {exec.result.http_status && <div className="text-nexus-500">&bull; HTTP {exec.result.http_status}</div>}
                     </div>
                   )}
                 </div>
