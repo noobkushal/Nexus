@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
+
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { CheckSquare, Plus, Trash2, Clock, CheckCircle2, AlertCircle } from "lucide-react";
@@ -26,7 +28,7 @@ export default function TasksPage() {
   const loadTasks = async () => {
     try {
       setLoading(true);
-      const res = await fetch("http://127.0.0.1:8000/api/v1/tasks");
+      const res = await apiFetch("http://127.0.0.1:8000/api/v1/tasks");
       if (res.ok) {
         const data = await res.json();
         setTasks(data.tasks || []);
@@ -47,7 +49,7 @@ export default function TasksPage() {
     if (!newTitle.trim()) return;
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/v1/tasks", {
+      const res = await apiFetch("http://127.0.0.1:8000/api/v1/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -71,7 +73,7 @@ export default function TasksPage() {
 
   const updateStatus = async (taskId: string, newStatus: string) => {
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/v1/tasks/${taskId}`, {
+      const res = await apiFetch(`http://127.0.0.1:8000/api/v1/tasks/${taskId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
@@ -86,7 +88,7 @@ export default function TasksPage() {
 
   const deleteTask = async (taskId: string) => {
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/v1/tasks/${taskId}`, {
+      const res = await apiFetch(`http://127.0.0.1:8000/api/v1/tasks/${taskId}`, {
         method: "DELETE",
       });
       if (res.ok) {
