@@ -1,6 +1,7 @@
 """Deterministic State Graph Orchestrator (LangGraph Architecture Pattern)."""
 import re
 from typing import Any, Callable, Dict, List, Optional
+from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from app.agents.orchestrator import orchestrator
 from app.core.logging import get_audit_logger, logger
@@ -34,7 +35,7 @@ class AgentGraphState(BaseModel):
 class AgentStateGraph:
     """Directed state graph executing multi-agent reasoning, routing, and safety barriers."""
 
-    async def execute(self, user_prompt: str, conversation_id: str) -> AgentGraphState:
+    async def execute(self, user_prompt: str, conversation_id: str, owner_user_id: Optional[str] = None, db: Optional[Session] = None) -> AgentGraphState:
         state = AgentGraphState(
             conversation_id=conversation_id,
             user_prompt=user_prompt,
@@ -47,7 +48,7 @@ class AgentStateGraph:
         state = await self._route_agent_node(state)
 
         # Node 3: Safety Boundary & Consequential Action Evaluation
-        state = await self._safety_barrier_node(state)
+        state = await self._safety_barrier_node(state, owner_user_id, db)
 
         # Node 4: Provider Response Synthesis
         state = await self._synthesis_node(state)
@@ -101,7 +102,7 @@ class AgentStateGraph:
         )
         return state
 
-    async def _safety_barrier_node(self, state: AgentGraphState) -> AgentGraphState:
+    async def _safety_barrier_node(self, state: AgentGraphState, owner_user_id: Optional[str], db: Optional[Session]) -> AgentGraphState:
         prompt = state.user_prompt
         consequential = False
         action_type = None
@@ -121,6 +122,8 @@ class AgentStateGraph:
             action_title = "External Pipeline Execution"
 
         if consequential and action_type and action_title:
+            if not owner_user_id or db is None:
+                raise RuntimeError("Consequential actions require an authenticated owner and persistent database session.")
             state.requires_approval = True
             appr = approval_service.request_approval(
                 ApprovalRequestCreate(
@@ -129,7 +132,9 @@ class AgentStateGraph:
                     title=action_title,
                     description=f"Agent proposed consequential action from prompt: '{state.user_prompt[:100]}'",
                     payload={"prompt": state.user_prompt},
-                )
+                ),
+                requester_user_id=owner_user_id,
+                db=db,
             )
             state.approval_id = appr.id
             state.steps.append(f"Safety Guard -> Consequential Action Detected! Subscribed to Approval Queue (#{appr.id})")
