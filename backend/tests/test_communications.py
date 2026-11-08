@@ -87,10 +87,10 @@ def test_email_approval_and_dispatch_lifecycle(comm_service, approval_context):
     )
     assert decision.status == ApprovalStatus.APPROVED
     result = comm_service.dispatch_email(email.id, owner_id, db)
-    assert result.dispatched is True
-    assert result.status == CommunicationStatus.DISPATCHED
-    assert "successfully dispatched" in result.message
-    assert comm_service.get_email(email.id).status == CommunicationStatus.DISPATCHED
+    assert result.dispatched is False
+    assert result.status == CommunicationStatus.APPROVED
+    assert "Nothing was sent" in result.message
+    assert comm_service.get_email(email.id).status == CommunicationStatus.APPROVED
 
 
 def test_message_approval_and_dispatch(comm_service, approval_context):
@@ -105,8 +105,10 @@ def test_message_approval_and_dispatch(comm_service, approval_context):
         db,
     )
     result = comm_service.dispatch_message(msg.id, owner_id, db)
-    assert result.dispatched is True
-    assert result.channel == "linkedin"
+    assert result.dispatched is False
+    assert result.status == CommunicationStatus.APPROVED
+    assert "Nothing was sent" in result.message
+    msg.content = "tampered after approval"
     with pytest.raises(CommunicationSecurityError):
         comm_service.dispatch_message(msg.id, owner_id, db)
 
