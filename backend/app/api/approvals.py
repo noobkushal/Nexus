@@ -25,7 +25,7 @@ async def list_approvals(
 @router.post("", response_model=ApprovalResponse, status_code=status.HTTP_201_CREATED)
 async def submit_approval_request(
     req: ApprovalRequestCreate,
-    user: UserModel = Depends(get_current_user),
+    user: UserModel = Depends(require_roles("owner", "operator")),
     db: Session = Depends(get_db),
 ) -> ApprovalResponse:
     return approval_service.request_approval(req, requester_user_id=user.id, db=db)
