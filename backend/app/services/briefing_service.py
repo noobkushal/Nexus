@@ -7,6 +7,7 @@ import glob
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from sqlalchemy.orm import Session
 
 from app.agents.orchestrator import orchestrator
 from app.core.config import settings
@@ -26,7 +27,7 @@ audit_logger = get_audit_logger()
 class BriefingService:
     """Compiles daily operational summaries and reminders for the human operator."""
 
-    def generate_daily_briefing(self) -> Dict[str, Any]:
+    def generate_daily_briefing(self, owner_user_id: Optional[str] = None, db: Optional[Session] = None) -> Dict[str, Any]:
         """Gathers runtime diagnostics, tasks, approvals, and generates a structured briefing."""
         now = datetime.now(timezone.utc)
         date_str = now.strftime("%Y-%m-%d")
@@ -43,7 +44,7 @@ class BriefingService:
         high_priority_tasks = [t for t in pending_tasks if t.priority in (TaskPriority.HIGH, TaskPriority.CRITICAL)]
 
         # 3. Safety Approval Gate
-        pending_approvals = approval_service.list_approvals(status=ApprovalStatus.PENDING)
+        pending_approvals = approval_service.list_approvals(db=db, requester_user_id=owner_user_id, status=ApprovalStatus.PENDING) if db is not None and owner_user_id else []
 
         # 4. Multi-Agent Roster & Activity
         agents = orchestrator.list_agents()
@@ -144,14 +145,14 @@ class BriefingService:
             },
         }
 
-    def get_latest_briefing(self) -> Dict[str, Any]:
+    def get_latest_briefing(self, owner_user_id: Optional[str] = None, db: Optional[Session] = None) -> Dict[str, Any]:
         """Returns the most recently generated briefing or creates a fresh one."""
         storage_base = Path(settings.STORAGE_DIR).resolve()
         generated_dir = storage_base / "generated"
         briefing_files = sorted(generated_dir.glob("daily_briefing_*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
 
         if not briefing_files:
-            return self.generate_daily_briefing()
+            return self.generate_daily_briefing(owner_user_id=owner_user_id, db=db)
 
         latest = briefing_files[0]
         content = latest.read_text(encoding="utf-8")
@@ -164,12 +165,13 @@ class BriefingService:
             "content": content,
         }
 
-    def list_reminders(self) -> List[Dict[str, Any]]:
+    def list_reminders(self, owner_user_id: Optional[str] = None, db: Optional[Session] = None) -> List[Dict[str, Any]]:
         """Synthesizes high-priority reminders across tasks, approvals, and communications."""
         reminders = []
 
         # 1. Pending approvals needing decision
-        for app in approval_service.list_approvals(status=ApprovalStatus.PENDING):
+        pending_approvals = approval_service.list_approvals(db=db, requester_user_id=owner_user_id, status=ApprovalStatus.PENDING) if db is not None and owner_user_id else []
+        for app in pending_approvals:
             reminders.append({
                 "type": "approval_required",
                 "priority": "urgent",
