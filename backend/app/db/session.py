@@ -40,17 +40,22 @@ def init_db():
     try:
         from app.db import models  # noqa: F401
         Base.metadata.create_all(bind=engine)
-        # Lightweight additive migration for databases created before auth fields existed.
+        # Lightweight additive migrations for existing local databases.
         existing_columns = {column["name"] for column in inspect(engine).get_columns("users")}
         auth_columns = {
             "password_hash": "VARCHAR(255)",
             "is_active": "BOOLEAN NOT NULL DEFAULT TRUE",
             "token_version": "INTEGER NOT NULL DEFAULT 0",
         }
+        task_columns = { "owner_id": "VARCHAR(64)" }
         with engine.begin() as connection:
             for column_name, column_ddl in auth_columns.items():
                 if column_name not in existing_columns:
                     connection.execute(text(f"ALTER TABLE users ADD COLUMN {column_name} {column_ddl}"))
+            existing_task_columns = {column["name"] for column in inspect(engine).get_columns("tasks")}
+            for column_name, column_ddl in task_columns.items():
+                if column_name not in existing_task_columns:
+                    connection.execute(text(f"ALTER TABLE tasks ADD COLUMN {column_name} {column_ddl}"))
         logger.info(f"Database schema initialized using: {engine.url.drivername}")
     except Exception as e:
         logger.error(f"Database initialization error: {e}", exc_info=True)
