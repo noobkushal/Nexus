@@ -120,3 +120,37 @@ class IntegrationSettingModel(Base):
     value_json = Column(Text, nullable=False)
     is_secret = Column(Boolean, default=False, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+
+
+class ApprovalModel(Base):
+    """Durable, payload-bound human approval request."""
+    __tablename__ = "approval_requests"
+
+    id = Column(String(64), primary_key=True, index=True)
+    requester_user_id = Column(String(64), ForeignKey("users.id"), nullable=False, index=True)
+    agent_id = Column(String(64), nullable=False)
+    action_type = Column(String(64), nullable=False)
+    title = Column(String(200), nullable=False)
+    description = Column(Text, nullable=False)
+    payload_json = Column(Text, nullable=False)
+    payload_hash = Column(String(64), nullable=False, index=True)
+    status = Column(String(20), default="pending", nullable=False, index=True)
+    requested_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    reviewer_id = Column(String(64), ForeignKey("users.id"), nullable=True)
+    decided_at = Column(DateTime(timezone=True), nullable=True)
+    reviewer_notes = Column(Text, nullable=True)
+    consumed_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class AuditEventModel(Base):
+    """Append-only security and approval audit event."""
+    __tablename__ = "audit_events"
+
+    id = Column(String(64), primary_key=True, index=True)
+    actor_user_id = Column(String(64), nullable=True, index=True)
+    event_type = Column(String(100), nullable=False, index=True)
+    resource_id = Column(String(64), nullable=True, index=True)
+    payload_hash = Column(String(64), nullable=True)
+    details_json = Column(Text, nullable=False, default="{}")
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
