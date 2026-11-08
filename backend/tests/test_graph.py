@@ -52,11 +52,16 @@ async def test_graph_apex_tailor_resume():
 
 
 @pytest.mark.asyncio
-async def test_graph_consequential_action_intercept():
+async def test_graph_consequential_action_intercept(test_database):
+    factory, owner = test_database
+    db = factory()
     state = await agent_graph.execute(
         user_prompt="Please delete all files in the old storage directory",
         conversation_id="test-conv-3",
+        owner_user_id=owner.id,
+        db=db,
     )
+    db.close()
     assert state.requires_approval is True
     assert state.approval_id is not None
     assert "SAFETY BARRIER INTERCEPT" in state.response_content
