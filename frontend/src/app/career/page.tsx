@@ -219,8 +219,7 @@ export default function CareerPage() {
                 </span>
               </div>
               <p className="text-xs text-nexus-400">
-                Agent &quot;Apex&quot; is prohibited from transmitting outbound outreach autonomously.
-                Every communication must be approved in Mission Control before dispatch.
+                Sample job cards are demonstration data, not verified vacancies. Resume output is a draft based on your source profile; verify every claim before applying. Outbound messages remain approval-gated.
               </p>
             </div>
           </div>
@@ -252,7 +251,7 @@ export default function CareerPage() {
             }`}
           >
             <Briefcase className="w-3.5 h-3.5" />
-            <span>Discovered Opportunities ({jobs.length})</span>
+            <span>Sample Opportunities ({jobs.length})</span>
           </button>
           <button
             onClick={() => setActiveTab("emails")}
@@ -290,8 +289,8 @@ export default function CareerPage() {
                   <div>
                     <div className="flex items-center gap-2.5">
                       <h3 className="text-sm font-semibold text-nexus-100">{job.title}</h3>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">
-                        {Math.round(job.match_score * 100)}% MATCH
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-900">
+                        SAMPLE FIXTURE
                       </span>
                     </div>
                     <p className="text-xs text-nexus-400 font-mono mt-0.5">

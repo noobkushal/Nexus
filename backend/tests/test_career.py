@@ -8,10 +8,10 @@ from app.tools.filesystem import sandboxed_fs
 
 
 def test_list_and_get_jobs():
-    """Verify default discovered job opportunities exist."""
+    """Verify sample fixtures are clearly distinguished from live vacancies."""
     jobs = career_service.list_jobs()
     assert len(jobs) >= 2
-    assert jobs[0].match_score >= 0.80
+    assert all(job.status == "sample" for job in jobs)
 
     first_job = jobs[0]
     fetched = career_service.get_job(first_job.id)
@@ -33,15 +33,16 @@ def test_tailor_resume_service():
     result = career_service.tailor_resume(req)
 
     assert result.target_company == "Anthropic Systems"
-    assert result.match_score >= 0.80
+    assert 0.0 <= result.match_score <= 1.0
     assert result.relative_path.startswith("generated/tailored_resume_anthropic_systems_")
     assert "FastAPI" in result.matched_skills
 
     # Verify physical file existence in storage
     saved_text = sandboxed_fs.read_text_file(result.relative_path)
-    assert "# Curriculum Vitae: Principal AI & Systems Architect" in saved_text
+    assert "# Curriculum Vitae — Candidate Draft" in saved_text
     assert "Lead AI Systems Architect @ Anthropic Systems" in saved_text
-    assert "NEXUS AI Platform" in saved_text
+    assert "does not invent employment history" in saved_text
+    assert "[Add your actual roles" in saved_text
 
 
 @pytest.mark.asyncio
