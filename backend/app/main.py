@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.api.auth import router as auth_router
-from app.core.auth import require_authenticated_user
+from app.core.auth import require_authenticated_user, require_roles
 from app.api.agents import router as agents_router
 from app.api.approvals import router as approvals_router
 from app.api.briefings import router as briefings_router
@@ -81,7 +81,6 @@ app.include_router(tasks_router, dependencies=[Depends(require_authenticated_use
 app.include_router(agents_router, dependencies=[Depends(require_authenticated_user)])
 app.include_router(approvals_router, dependencies=[Depends(require_authenticated_user)])
 app.include_router(storage_router, dependencies=[Depends(require_authenticated_user)])
-from app.core.auth import require_roles
 app.include_router(settings_router, dependencies=[Depends(require_roles("owner"))])
 app.include_router(workflows_router, dependencies=[Depends(require_authenticated_user)])
 app.include_router(memory_router, dependencies=[Depends(require_authenticated_user)])
