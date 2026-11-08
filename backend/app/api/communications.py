@@ -1,6 +1,10 @@
 """API Endpoints for Email, Messaging, and Calendar Communications."""
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, status, Depends
+from sqlalchemy.orm import Session
+from app.core.auth import get_current_user
+from app.db.models import UserModel
+from app.db.session import get_db
 
 from app.schemas.communication import (
     CalendarEvent,
@@ -37,19 +41,19 @@ def create_email(draft_in: EmailDraftCreate):
 
 
 @router.post("/emails/{email_id}/request-dispatch", response_model=EmailDraft)
-def request_email_dispatch(email_id: str):
+def request_email_dispatch(email_id: str, user: UserModel = Depends(get_current_user), db: Session = Depends(get_db)):
     """Submit email draft to the human approval gate."""
     try:
-        return communication_service.request_email_dispatch(email_id)
+        return communication_service.request_email_dispatch(email_id, user.id, db)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.post("/emails/{email_id}/dispatch", response_model=DispatchResult)
-def dispatch_email(email_id: str):
+def dispatch_email(email_id: str, user: UserModel = Depends(get_current_user), db: Session = Depends(get_db)):
     """Transmit email after human operator approval."""
     try:
-        return communication_service.dispatch_email(email_id)
+        return communication_service.dispatch_email(email_id, user.id, db)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except CommunicationSecurityError as e:
@@ -72,19 +76,19 @@ def create_message(draft_in: MessageDraftCreate):
 
 
 @router.post("/messages/{message_id}/request-dispatch", response_model=MessageDraft)
-def request_message_dispatch(message_id: str):
+def request_message_dispatch(message_id: str, user: UserModel = Depends(get_current_user), db: Session = Depends(get_db)):
     """Submit message draft to human approval gate."""
     try:
-        return communication_service.request_message_dispatch(message_id)
+        return communication_service.request_message_dispatch(message_id, user.id, db)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.post("/messages/{message_id}/dispatch", response_model=DispatchResult)
-def dispatch_message(message_id: str):
+def dispatch_message(message_id: str, user: UserModel = Depends(get_current_user), db: Session = Depends(get_db)):
     """Transmit message after human operator approval."""
     try:
-        return communication_service.dispatch_message(message_id)
+        return communication_service.dispatch_message(message_id, user.id, db)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except CommunicationSecurityError as e:
