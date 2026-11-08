@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     # Database Configuration (Optional - falls back to SQLite in-memory/local file)
     DATABASE_URL: Optional[str] = None
 
+    # Authentication: set both secrets through the environment before enabling login.
+    AUTH_SECRET_KEY: Optional[str] = None
+    AUTH_BOOTSTRAP_SECRET: Optional[str] = None
+    ACCESS_TOKEN_TTL_MINUTES: int = 20
+
     # Storage Paths
     STORAGE_DIR: Path = DEFAULT_STORAGE_DIR
 
