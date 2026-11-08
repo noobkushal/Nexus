@@ -75,6 +75,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # Mount API Routers
 app.include_router(health_router)
+app.include_router(auth_router)
 app.include_router(chat_router, dependencies=[Depends(require_authenticated_user)])
 app.include_router(tasks_router, dependencies=[Depends(require_authenticated_user)])
 app.include_router(agents_router, dependencies=[Depends(require_authenticated_user)])
