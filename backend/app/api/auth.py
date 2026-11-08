@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.core.auth import create_access_token, hash_password, verify_password, get_current_user
+from app.core.auth import create_access_token, hash_password, verify_password, get_current_user, _signing_key
 from app.core.config import settings
 from app.db.models import UserModel
 from app.db.session import get_db
@@ -26,6 +26,7 @@ def _public_user(user: UserModel) -> dict:
 
 @router.post("/bootstrap", status_code=status.HTTP_201_CREATED)
 def bootstrap_owner(request: BootstrapRequest, bootstrap_secret: str = Header("", alias="X-Nexus-Bootstrap-Secret"), db: Session = Depends(get_db)):
+    _signing_key()  # Fail before creating the owner if token signing is not configured.
     configured = settings.AUTH_BOOTSTRAP_SECRET
     if not configured or len(configured) < 24 or not secrets.compare_digest(bootstrap_secret, configured):
         raise HTTPException(status_code=403, detail="Invalid or unavailable bootstrap secret.")
