@@ -158,28 +158,16 @@ class CommunicationService:
                 f"Human approval is mandatory before transmission."
             )
 
-        consumed = approval_service.consume_approval(email.approval_id, expected_hash, owner_user_id, db)
-        if not consumed:
-            raise CommunicationSecurityError("Dispatch blocked: approval is expired, already used, or no longer valid.")
-        email.status = CommunicationStatus.DISPATCHED
-        email.dispatched_at = utc_now()
-
-        audit_logger.warning(
-            f"SECURITY DISPATCH: Outbound email transmitted to {email.recipient} under approval #{appr.id}"
-        )
-        orchestrator.log_activity(
-            agent_id="personal_agent",
-            action="Email Dispatched",
-            details=f"Sent to {email.recipient}: '{email.subject}'",
-            status="completed",
-        )
-
+        # No outbound email transport is wired yet. Keep the approval intact;
+        # never report a message as sent when no provider actually transmitted it.
+        email.status = CommunicationStatus.APPROVED
+        audit_logger.info(f"Email approval verified for {email.id}; outbound transport is not configured.")
         return DispatchResult(
             id=email.id,
             channel="email",
-            status=CommunicationStatus.DISPATCHED,
-            dispatched=True,
-            message=f"Email successfully dispatched to {email.recipient}.",
+            status=CommunicationStatus.APPROVED,
+            dispatched=False,
+            message="Approval verified, but no outbound email transport is configured. Nothing was sent.",
             audit_logged=True,
         )
 
@@ -241,22 +229,16 @@ class CommunicationService:
                 f"Human approval required."
             )
 
-        consumed = approval_service.consume_approval(msg.approval_id, expected_hash, owner_user_id, db)
-        if not consumed:
-            raise CommunicationSecurityError("Dispatch blocked: approval is expired, already used, or no longer valid.")
-        msg.status = CommunicationStatus.DISPATCHED
-        msg.dispatched_at = utc_now()
-
-        audit_logger.warning(
-            f"SECURITY DISPATCH: Outbound {msg.channel.value} message sent to {msg.recipient} under approval #{appr.id}"
-        )
-
+        # No outbound messaging transport is wired yet. Preserve the approved
+        # proposal for a future provider adapter; do not claim that it was sent.
+        msg.status = CommunicationStatus.APPROVED
+        audit_logger.info(f"{msg.channel.value} approval verified for {msg.id}; outbound transport is not configured.")
         return DispatchResult(
             id=msg.id,
             channel=msg.channel.value,
-            status=CommunicationStatus.DISPATCHED,
-            dispatched=True,
-            message=f"{msg.channel.value.title()} message sent to {msg.recipient}.",
+            status=CommunicationStatus.APPROVED,
+            dispatched=False,
+            message="Approval verified, but no outbound messaging transport is configured. Nothing was sent.",
             audit_logged=True,
         )
 
