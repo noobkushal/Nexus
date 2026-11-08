@@ -1,9 +1,9 @@
 """NEXUS AI — Main FastAPI Application Entry Point."""
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from app.api.agents import router as agents_router
+from app.api.auth import router as auth_router\nfrom app.core.auth import require_authenticated_user\nfrom app.api.agents import router as agents_router
 from app.api.approvals import router as approvals_router
 from app.api.briefings import router as briefings_router
 from app.api.career import router as career_router
@@ -73,18 +73,18 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # Mount API Routers
 app.include_router(health_router)
-app.include_router(chat_router)
-app.include_router(tasks_router)
-app.include_router(agents_router)
-app.include_router(approvals_router)
-app.include_router(storage_router)
-app.include_router(settings_router)
-app.include_router(workflows_router)
-app.include_router(memory_router)
-app.include_router(communications_router)
-app.include_router(briefings_router)
-app.include_router(career_router)
-app.include_router(skills_router)
+app.include_router(chat_router, dependencies=[Depends(require_authenticated_user)])
+app.include_router(tasks_router, dependencies=[Depends(require_authenticated_user)])
+app.include_router(agents_router, dependencies=[Depends(require_authenticated_user)])
+app.include_router(approvals_router, dependencies=[Depends(require_authenticated_user)])
+app.include_router(storage_router, dependencies=[Depends(require_authenticated_user)])
+app.include_router(settings_router, dependencies=[Depends(require_authenticated_user)])
+app.include_router(workflows_router, dependencies=[Depends(require_authenticated_user)])
+app.include_router(memory_router, dependencies=[Depends(require_authenticated_user)])
+app.include_router(communications_router, dependencies=[Depends(require_authenticated_user)])
+app.include_router(briefings_router, dependencies=[Depends(require_authenticated_user)])
+app.include_router(career_router, dependencies=[Depends(require_authenticated_user)])
+app.include_router(skills_router, dependencies=[Depends(require_authenticated_user)])
 
 
 @app.get("/", tags=["Root"])
