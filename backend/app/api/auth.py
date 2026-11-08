@@ -71,8 +71,7 @@ def login(request: LoginRequest, response: Response, db: Session = Depends(get_d
     _audit_auth(db, user.id, "identity.login_succeeded", {"outcome": "success"})
     db.commit()
     token = create_access_token(user)
-    if response is not None:
-        response.set_cookie(key="nexus_access_token", value=token, httponly=True, secure=settings.ENVIRONMENT.lower() == "production", samesite="lax", max_age=settings.ACCESS_TOKEN_TTL_MINUTES * 60, path="/")
+    response.set_cookie(key="nexus_access_token", value=token, httponly=True, secure=settings.ENVIRONMENT.lower() == "production", samesite="lax", max_age=settings.ACCESS_TOKEN_TTL_MINUTES * 60, path="/")
     return {"user": _public_user(user), "access_token": token, "token_type": "bearer", "expires_in": settings.ACCESS_TOKEN_TTL_MINUTES * 60}
 
 @router.get("/me")
