@@ -28,6 +28,12 @@ The script creates a random token on first run and restricts its file ACL to
 the current Windows identity. It starts the local service on port 8765 and
 uses the repository as the allowed workspace.
 
+Open the NEXUS dashboard on the same PC, navigate to **Windows Companion**,
+paste the token from LOCALAPPDATA\\Nexus\\companion.token, and select Connect.
+The browser may ask permission to access a local network service. The token is
+held only in the page's memory. Select a file to read it; saving requires a
+separate confirmation dialog.
+
 ## API
 
 All endpoints require an Authorization: Bearer header containing the value in
@@ -59,7 +65,8 @@ Invoke-RestMethod -Headers @{ Authorization = "Bearer $Token" } http://127.0.0.1
 
 ## Integration boundary
 
-This version is local-only and is not yet connected to the NEXUS backend device
-registry, an authenticated relay, Android, Playwright, or a desktop UI. Those
-require a pairing/revocation protocol and device-identity lifecycle. Do not
-expose the local service to the internet as a workaround.
+The dashboard can access the companion only from the same PC/browser. This
+version is not registered with the NEXUS backend and has no authenticated
+relay, Android remote access, Playwright browser control, or full desktop
+control. Those require a pairing/revocation protocol and device-identity
+lifecycle. Do not expose the local service to the internet as a workaround.
