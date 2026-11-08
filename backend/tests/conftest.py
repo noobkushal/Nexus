@@ -17,7 +17,7 @@ from app.main import app
 def test_database():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(bind=engine)
-    factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+    factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
     setup_db = factory()
     owner = UserModel(
         id=str(uuid.uuid4()),
