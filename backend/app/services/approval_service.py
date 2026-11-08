@@ -153,6 +153,13 @@ class ApprovalService:
     def consume_approval(self, approval_id: str, expected_payload_hash: str, owner_user_id: str, db: Session) -> Optional[ApprovalResponse]:
         """Atomically consume an approved action exactly once at execution time."""
         now = utc_now()
+        db.query(ApprovalModel).filter(
+            ApprovalModel.id == approval_id,
+            ApprovalModel.requester_user_id == owner_user_id,
+            ApprovalModel.status == ApprovalStatus.APPROVED.value,
+            ApprovalModel.expires_at <= now,
+        ).update({"status": ApprovalStatus.EXPIRED.value}, synchronize_session=False)
+        db.commit()
         changed = db.query(ApprovalModel).filter(
             ApprovalModel.id == approval_id,
             ApprovalModel.requester_user_id == owner_user_id,
