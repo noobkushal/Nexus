@@ -73,6 +73,7 @@ interface ApprovalItem {
   action_type: string;
   title: string;
   description: string;
+  payload_hash: string;
   status: string;
 }
 
@@ -164,11 +165,13 @@ export default function DashboardPage() {
   }, []);
 
   const handleDecision = async (id: string, decision: "approved" | "rejected") => {
+    const approval = approvals.find((item) => item.id === id);
+    if (!approval?.payload_hash) return;
     try {
       const res = await fetch(`http://127.0.0.1:8000/api/v1/approvals/${id}/decision`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decision }),
+        body: JSON.stringify({ decision, payload_hash: approval.payload_hash }),
       });
       if (res.ok) {
         loadAll();
